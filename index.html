@@ -62,6 +62,7 @@ select{font:inherit;font-size:14px;color:var(--ink);background:var(--panel);bord
 #body{min-width:0}
 .code{font-family:var(--f-mono);font-size:17px;line-height:1.8;white-space:pre;overflow-x:auto;margin:0;padding:6px 2px}
 .done{color:var(--ok)}
+.retry-tag{align-self:flex-start;font-size:12px;color:var(--accent);background:var(--accent-soft);border-radius:999px;padding:1px 10px;margin-bottom:2px;display:inline-block}
 .done .ng{color:var(--bad);text-decoration:underline wavy;text-underline-offset:4px}
 .rest{color:var(--muted)}
 .cur{background:var(--cur-bg);color:var(--cur-fg);border-radius:3px;box-shadow:0 2px 0 var(--accent)}
@@ -160,6 +161,7 @@ th{color:var(--muted);font-weight:400;font-size:12px}
     <div class="controls" id="ctl-common">
       <label id="lblLen">長さ<select id="selLen"><option value="s">短め</option><option value="n">標準</option><option value="l">長め</option></select></label>
       <label class="chk" id="lblSkip"><input type="checkbox" id="optSkip"> ミスしても先に進む</label>
+      <label class="chk" id="lblRetry"><input type="checkbox" id="optRetry"> ミスした行をもう一度出す</label>
       <label class="chk"><input type="checkbox" id="optSound"> 打鍵音・効果音</label>
     </div>
     <div id="customBox" hidden>
@@ -186,7 +188,8 @@ th{color:var(--muted);font-weight:400;font-size:12px}
     <div class="rec-grid">
       <div class="sec">
         <div class="sec-h"><h2>速度の推移</h2>
-          <select id="selHist"><option value="code">コード</option><option value="roma">ローマ字</option><option value="ime">IME変換</option><option value="weak">苦手特訓</option></select></div>
+          <span><select id="selHist"><option value="code">コード</option><option value="roma">ローマ字</option><option value="ime">IME変換</option><option value="weak">苦手特訓</option></select>
+          <select id="selGran"><option value="run">回ごと</option><option value="day">日ごと</option></select></span></div>
         <div id="chart" class="chart"></div>
       </div>
       <div class="sec">
@@ -195,8 +198,9 @@ th{color:var(--muted);font-weight:400;font-size:12px}
       </div>
     </div>
     <div class="sec">
-      <div class="sec-h"><h2>キーごとのミス率</h2>
-        <select id="selLayout"><option value="jis">JIS配列</option><option value="us">US配列</option></select></div>
+      <div class="sec-h"><h2 id="kbTitle">キーごとのミス率</h2>
+        <span><select id="selKb"><option value="miss">ミス率</option><option value="speed">反応速度</option></select>
+        <select id="selLayout"><option value="jis">JIS配列</option><option value="us">US配列</option></select></span></div>
       <div class="kb-wrap"><div id="kb" class="kb"></div></div>
       <div id="kbInfo" class="hint">キーにカーソルを合わせると詳細が出ます。点線のキーはまだデータが少ないキーです。</div>
     </div>
@@ -377,8 +381,8 @@ const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':
 const STORE = 'dakendojo-v1';
 function loadDB(){ try { return JSON.parse(localStorage.getItem(STORE)); } catch(e){ return null; } }
 function saveDB(){ try { localStorage.setItem(STORE, JSON.stringify(DB)); } catch(e){} }
-let DB = Object.assign({keys:{}, history:[], customCode:'', customIme:'', layout:'jis'}, loadDB() || {});
-DB.settings = Object.assign({skip:false, len:'n', sound:false}, DB.settings);
+let DB = Object.assign({keys:{}, history:[], customCode:'', customIme:'', layout:'jis', kbMode:'miss'}, loadDB() || {});
+DB.settings = Object.assign({skip:false, len:'n', sound:false, retry:true}, DB.settings);
 
 /* ---------- data ---------- */
 const blocks = {};
@@ -570,6 +574,11 @@ function hit(ch){
 }
 function miss(ch){
   S.miss++;
+  const mi = S.items[S.idx];
+  if (mi) {
+    mi.missN = (mi.missN || 0) + 1;
+    if (mi.type === 'code') (mi.missLines = mi.missLines || new Set()).add(mi.text.slice(0, mi.pos).split('\n').length - 1);
+  }
   if (ch != null) { const k = keyName(ch); S.missKeys[k] = (S.missKeys[k] || 0) + 1; }
   rec(ch, false); sfx.miss();
   const b = $('#body'); b.classList.remove('flash'); void b.offsetWidth; b.classList.add('flash');
@@ -577,7 +586,7 @@ function miss(ch){
 }
 
 /* ---------- code typing ---------- */
-const opt = { indent:true, guide:true, get skip(){ return DB.settings.skip; } };
+const opt = { indent:true, guide:true, get skip(){ return DB.settings.skip; }, get retry(){ return DB.settings.retry; } };
 function codeKey(k){
   const it = cur(), t = it.text, exp = t[it.pos];
   const skipOn = () => { (it.bad = it.bad || new Set()).add(it.pos); it.pos++; if (exp === '\n' && opt.indent) while (t[it.pos] === ' ') it.pos++; };
@@ -649,7 +658,20 @@ $('#imeInput').addEventListener('keydown', e => {
 });
 
 /* ---------- flow ---------- */
+function dedent(lines){
+  const ind = Math.min(...lines.filter(l => l.trim()).map(l => l.match(/^ */)[0].length), Infinity);
+  return ind && ind !== Infinity ? lines.map(l => l.slice(ind)) : lines;
+}
+function queueRetry(it){
+  if (!opt.retry || it.retry || !it.missN || mode === 'ime') return;
+  if (it.type === 'code') {
+    const all = it.text.split('\n');
+    const lines = dedent([...it.missLines].sort((a, b) => a - b).map(i => all[i]).filter(l => l && l.trim()));
+    if (lines.length) S.items.push({type:'code', text:lines.join('\n'), retry:true});
+  } else if (it.type === 'roma') S.items.push({type:'roma', text:it.text, reading:it.reading, retry:true});
+}
 function nextItem(){
+  queueRetry(cur());
   S.idx++;
   if (S.idx >= S.items.length) return finish();
   sfx.item();
@@ -711,11 +733,12 @@ function renderBody(){
   const it = cur();
   imeWrap.hidden = it.type !== 'ime';
   const nxt = S.items[S.idx + 1];
+  const retryTag = it.retry ? '<div class="retry-tag">復習: さっきミスした部分</div>' : '';
   const nextLine = nxt ? `<div class="next">次: ${esc(nxt.type === 'code' ? nxt.text.split('\n')[0] : nxt.text)}</div>` : '';
   if (it.type === 'code') {
     const t = it.text, p = it.pos, c = t[p];
     const curHTML = c === '\n' ? '<span class="cur">↵</span>\n' : `<span class="cur">${esc(c)}</span>`;
-    body.innerHTML = `<pre class="code"><span class="done">${doneHTML(it)}</span>${curHTML}<span class="rest">${esc(t.slice(p+1))}</span></pre>${nextLine}`;
+    body.innerHTML = `${retryTag}<pre class="code"><span class="done">${doneHTML(it)}</span>${curHTML}<span class="rest">${esc(t.slice(p+1))}</span></pre>${nextLine}`;
     const el = body.querySelector('.cur'); if (el && el.scrollIntoView) el.scrollIntoView({block:'nearest', inline:'nearest'});
   } else if (it.type === 'roma') {
     let kDone = '', kRest = '', rDone = '', rCur = '', rRest = '';
@@ -731,7 +754,7 @@ function renderBody(){
       } else if (rCur === '' && i === it.ui + 1) { kRest += u.o; rCur = u.cands[0][0]; rRest += u.cands[0].slice(1); }
       else { kRest += u.o; rRest += u.cands[0]; }
     });
-    body.innerHTML = `<p class="jp-text">${esc(it.text)}</p>
+    body.innerHTML = `${retryTag}<p class="jp-text">${esc(it.text)}</p>
       <p class="jp-kana"><span class="done">${kDone}</span>${esc(kRest)}</p>
       ${opt.guide ? `<p class="jp-roma"><span class="done">${rDone}</span><span class="cur">${esc(rCur)}</span><span class="rest">${esc(rRest)}</span></p>` :
         `<p class="jp-roma"><span class="done">${rDone}</span><span class="cur">&nbsp;</span></p>`}
@@ -785,6 +808,7 @@ function setMode(m){
   $('#rec').hidden = view !== 'rec';
   ['code','roma','ime','weak'].forEach(k => { $('#ctl-' + k).hidden = k !== mode; });
   $('#lblSkip').hidden = !(mode === 'code' || mode === 'roma' || mode === 'weak');
+  $('#lblRetry').hidden = mode === 'ime'; $('#optRetry').checked = DB.settings.retry;
   $('#optSkip').checked = DB.settings.skip; $('#selLen').value = DB.settings.len; $('#optSound').checked = DB.settings.sound;
   $('#lblLen').hidden = (mode === 'ime' && sub.ime === 'custom');
   updateCustomBox();
@@ -819,6 +843,7 @@ $('#selIme').addEventListener('change', e => { sub.ime = e.target.value; $('#lbl
 $('#optIndent').addEventListener('change', e => { opt.indent = e.target.checked; newSession(); focusStage(); });
 $('#selLen').addEventListener('change', e => { DB.settings.len = e.target.value; saveDB(); newSession(); focusStage(); });
 $('#optSound').addEventListener('change', e => { DB.settings.sound = e.target.checked; saveDB(); sfx.item(); focusStage(); });
+$('#optRetry').addEventListener('change', e => { DB.settings.retry = e.target.checked; saveDB(); newSession(); focusStage(); });
 $('#optSkip').addEventListener('change', e => { DB.settings.skip = e.target.checked; saveDB(); newSession(); focusStage(); });
 $('#optGuide').addEventListener('change', e => { opt.guide = e.target.checked; render(); focusStage(); });
 $('#customApply').addEventListener('click', () => {
@@ -877,30 +902,44 @@ const LAYOUTS = {
 const OFFS = [0, 20, 30, 44];
 function renderKeyboard(){
   const L = LAYOUTS[DB.layout] || LAYOUTS.jis;
-  $('#selLayout').value = DB.layout;
+  const speed = DB.kbMode === 'speed';
+  $('#selLayout').value = DB.layout; $('#selKb').value = speed ? 'speed' : 'miss';
+  $('#kbTitle').textContent = speed ? 'キーごとの反応速度' : 'キーごとのミス率';
+  let tT = 0, tC = 0; Object.values(DB.keys).forEach(v => { tT += v.t; tC += v.c; });
+  const avg = tC ? tT / tC : 0;
+  // 1キー分の色と説明。chars は同じキーに載っている文字
+  const cell = (chars, label, shifted) => {
+    let n = 0, m = 0, t = 0, c = 0;
+    chars.forEach(ch => { const v = DB.keys[ch]; if (v) { n += v.n; m += v.m; t += v.t; c += v.c; } });
+    const sh = shifted ? ' ' + shifted : '';
+    if (speed) {
+      if (c < 5 || !avg) return {few:true, p:0, info:`${label}: データ不足 (${c}打)`};
+      const ms = t / c, ratio = ms / avg;
+      return {few:false, p:Math.round(Math.min(1, Math.max(0, (ratio - 0.8) / 0.9)) * 85), info:`${label}${sh}: 平均 ${Math.round(ms)}ms ・ 全体の${ratio.toFixed(2)}倍 ・ ${c}打`};
+    }
+    if (n < 5) return {few:true, p:0, info:`${label}: データ不足 (${n}打)`};
+    const rate = m / n;
+    return {few:false, p:Math.round(Math.min(1, rate / 0.2) * 85), info:`${label}${sh}: ミス率 ${(rate*100).toFixed(1)}% ・ ${n}打`};
+  };
+  const paint = r => r.few ? '' : `background:color-mix(in oklab, var(--heat) ${r.p}%, var(--panel));${r.p > 50 ? 'color:var(--on-accent)' : ''}`;
   let h = '';
   L.forEach((row, ri) => {
     h += `<div class="row" style="padding-left:${OFFS[ri]}px">`;
     row.forEach(cap => {
-      const chars = cap.slice(0, 2).filter(Boolean);
-      let n = 0, m = 0;
-      chars.forEach(c => { const v = DB.keys[c]; if (v) { n += v.n; m += v.m; } });
-      const rate = n ? m / n : 0;
-      const few = n < 5;
-      const p = few ? 0 : Math.round(Math.min(1, rate / 0.2) * 85);
-      const style = few ? '' : `background:color-mix(in oklab, var(--heat) ${p}%, var(--panel));${p > 50 ? 'color:var(--on-accent)' : ''}`;
-      const label = cap[2] || cap[0];
-      const info = few ? `${label}: データ不足 (${n}打)` : `${label}${cap[1] ? ' ' + cap[1] : ''}: ミス率 ${(rate*100).toFixed(1)}% ・ ${n}打`;
-      h += `<div class="key${few ? ' few' : ''}" style="${style}" data-info="${esc(info)}" title="${esc(info)}"><span class="b">${esc(label)}</span>${cap[1] ? `<span class="s">${esc(cap[1])}</span>` : ''}</div>`;
+      const label = cap[2] || cap[0], r = cell(cap.slice(0, 2).filter(Boolean), label, cap[1]);
+      h += `<div class="key${r.few ? ' few' : ''}" style="${paint(r)}" data-info="${esc(r.info)}" title="${esc(r.info)}"><span class="b">${esc(label)}</span>${cap[1] ? `<span class="s">${esc(cap[1])}</span>` : ''}</div>`;
     });
     h += '</div>';
   });
-  const sp = DB.keys[' '];
-  const spInfo = sp ? `スペース: ミス率 ${(sp.m/sp.n*100).toFixed(1)}% ・ ${sp.n}打` : 'スペース: データ不足';
-  h += `<div class="row" style="padding-left:150px"><div class="key${sp && sp.n >= 5 ? '' : ' few'}" style="width:230px" data-info="${esc(spInfo)}" title="${esc(spInfo)}"><span class="b">space</span></div></div>`;
+  const sr = cell([' '], 'スペース');
+  h += `<div class="row" style="padding-left:150px"><div class="key${sr.few ? ' few' : ''}" style="width:230px;${paint(sr)}" data-info="${esc(sr.info)}" title="${esc(sr.info)}"><span class="b">space</span></div></div>`;
   $('#kb').innerHTML = h;
+  $('#kbInfo').textContent = speed
+    ? 'キーにカーソルを合わせると詳細が出ます。赤いほど、そのキーを押すまでが全体の平均より遅いキーです。点線はデータ不足です。'
+    : 'キーにカーソルを合わせると詳細が出ます。点線のキーはまだデータが少ないキーです。';
 }
 $('#kb').addEventListener('mouseover', e => { const k = e.target.closest('.key'); if (k) $('#kbInfo').textContent = k.dataset.info; });
+$('#selKb').addEventListener('change', e => { DB.kbMode = e.target.value; saveDB(); renderKeyboard(); });
 $('#selLayout').addEventListener('change', e => { DB.layout = e.target.value; saveDB(); renderKeyboard(); });
 
 function renderWeakList(){
@@ -915,7 +954,14 @@ function renderWeakList(){
 function renderChart(){
   const box = $('#chart');
   const g = $('#selHist').value;
-  const data = DB.history.filter(h => h.mode === g || h.mode.startsWith(g + ':')).slice(-30);
+  const day = $('#selGran').value === 'day';
+  let data = DB.history.filter(h => h.mode === g || h.mode.startsWith(g + ':'));
+  if (day) {
+    const byDay = new Map();
+    data.forEach(h => { const d = new Date(h.t), k = d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate(); const e = byDay.get(k) || {t:h.t, sp:0, ac:0, n:0}; e.sp += h.spd; e.ac += h.acc; e.n++; e.t = Math.min(e.t, h.t); byDay.set(k, e); });
+    data = [...byDay.values()].sort((a, b) => a.t - b.t).map(e => ({t:e.t, spd:Math.round(e.sp / e.n), acc:e.ac / e.n, n:e.n, mode:g}));
+  }
+  data = data.slice(-30);
   const unit = g === 'ime' ? '字/分' : '打/分';
   if (!data.length) { box.innerHTML = `<div class="empty">このモードの記録はまだありません。1回練習するとグラフが表示されます。</div>`; return; }
   const W = Math.max(300, box.clientWidth || 560), H = 220, ml = 40, mr = 18, mt = 14, mb = 28;
@@ -955,7 +1001,9 @@ function renderChart(){
     cx.setAttribute('x1', px); cx.setAttribute('x2', px); cx.setAttribute('visibility', 'visible');
     cd.setAttribute('cx', px); cd.setAttribute('cy', py); cd.setAttribute('visibility', 'visible');
     const dt = new Date(d.t);
-    tip.innerHTML = `${dt.getMonth()+1}/${dt.getDate()} ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')} ・ ${esc(MODE_LABEL[d.mode] || d.mode)}<br><b>${d.spd}</b> ${unit} ・ 正確率 ${(d.acc*100).toFixed(1)}%`;
+    tip.innerHTML = day
+      ? `${dt.getMonth()+1}/${dt.getDate()} ・ ${d.n}回の平均<br><b>${d.spd}</b> ${unit} ・ 正確率 ${(d.acc*100).toFixed(1)}%`
+      : `${dt.getMonth()+1}/${dt.getDate()} ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')} ・ ${esc(MODE_LABEL[d.mode] || d.mode)}<br><b>${d.spd}</b> ${unit} ・ 正確率 ${(d.acc*100).toFixed(1)}%`;
     tip.hidden = false;
     const scale = r.width / W;
     let left = px * scale + 12; if (left + tip.offsetWidth > r.width) left = px * scale - tip.offsetWidth - 12;
@@ -964,6 +1012,7 @@ function renderChart(){
   hov.addEventListener('mouseleave', () => { tip.hidden = true; cx.setAttribute('visibility','hidden'); cd.setAttribute('visibility','hidden'); });
 }
 $('#selHist').addEventListener('change', renderChart);
+$('#selGran').addEventListener('change', renderChart);
 window.addEventListener('resize', () => { if (view === 'rec') renderChart(); });
 
 function renderTable(){
