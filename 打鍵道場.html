@@ -158,7 +158,9 @@ th{color:var(--muted);font-weight:400;font-size:12px}
     </div>
     <div class="controls" id="ctl-weak"><span id="weakInfo"></span></div>
     <div class="controls" id="ctl-common">
+      <label id="lblLen">長さ<select id="selLen"><option value="s">短め</option><option value="n">標準</option><option value="l">長め</option></select></label>
       <label class="chk" id="lblSkip"><input type="checkbox" id="optSkip"> ミスしても先に進む</label>
+      <label class="chk"><input type="checkbox" id="optSound"> 打鍵音・効果音</label>
     </div>
     <div id="customBox" hidden>
       <textarea id="customText" spellcheck="false" placeholder=""></textarea>
@@ -376,7 +378,7 @@ const STORE = 'dakendojo-v1';
 function loadDB(){ try { return JSON.parse(localStorage.getItem(STORE)); } catch(e){ return null; } }
 function saveDB(){ try { localStorage.setItem(STORE, JSON.stringify(DB)); } catch(e){} }
 let DB = Object.assign({keys:{}, history:[], customCode:'', customIme:'', layout:'jis'}, loadDB() || {});
-DB.settings = Object.assign({skip:false}, DB.settings);
+DB.settings = Object.assign({skip:false, len:'n', sound:false}, DB.settings);
 
 /* ---------- data ---------- */
 const blocks = {};
@@ -396,6 +398,8 @@ function normCode(s){
 }
 function shuffle(a){ a = a.slice(); for (let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
 const pick = (a,n) => shuffle(a).slice(0,n);
+const LEN = {code:{s:1,n:3,l:6}, sym:{s:4,n:8,l:16}, jp:{s:4,n:8,l:16}, chunk:{s:5,n:10,l:20}};
+const lenOf = k => LEN[k][DB.settings.len] || LEN[k].n;
 
 /* ---------- romaji engine ---------- */
 const K1 = {}, K2 = {};
@@ -470,15 +474,15 @@ function buildItems(){
       const t = normCode(DB.customCode || '');
       if (!t) return [{type:'code', text:'// 上の欄に自分のコードを貼り付けて「このテキストで練習」を押してください'}];
       const lines = t.split('\n'), chunks = [];
-      for (let i = 0; i < lines.length; i += 10) { const c = normCode(lines.slice(i, i+10).join('\n')); if (c) chunks.push(c); }
+      const cl = lenOf('chunk'); for (let i = 0; i < lines.length; i += cl) { const c = normCode(lines.slice(i, i+cl).join('\n')); if (c) chunks.push(c); }
       return chunks.map(text => ({type:'code', text}));
     }
-    if (l === 'sym') return pick(blocks.sym[0].split('\n').filter(Boolean), 8).map(text => ({type:'code', text}));
-    return pick(blocks[l], 3).map(t => ({type:'code', text:normCode(t)}));
+    if (l === 'sym') return pick(blocks.sym[0].split('\n').filter(Boolean), lenOf('sym')).map(text => ({type:'code', text}));
+    return pick(blocks[l], lenOf('code')).map(t => ({type:'code', text:normCode(t)}));
   }
   if (mode === 'roma') {
     const src = sub.roma === 'mix' ? JP.prompt.concat(JP.daily) : JP[sub.roma];
-    return pick(src, 8).map(([text, reading]) => ({type:'roma', text, reading}));
+    return pick(src, lenOf('jp')).map(([text, reading]) => ({type:'roma', text, reading}));
   }
   if (mode === 'ime') {
     if (sub.ime === 'custom') {
@@ -486,7 +490,7 @@ function buildItems(){
       if (!ls.length) return [{type:'ime', text:'上の欄に練習したい文章を1行ずつ入れてください。'}];
       return ls.map(text => ({type:'ime', text}));
     }
-    return pick(JP[sub.ime], 8).map(([text]) => ({type:'ime', text}));
+    return pick(JP[sub.ime], lenOf('jp')).map(([text]) => ({type:'ime', text}));
   }
   return genWeak();
 }
@@ -508,7 +512,7 @@ function genWeak(){
   const weights = POOL.map(w), total = weights.reduce((a,b) => a+b, 0);
   const draw = () => { let r = Math.random() * total; for (let i = 0; i < POOL.length; i++) { r -= weights[i]; if (r <= 0) return POOL[i]; } return POOL[0]; };
   const items = [];
-  for (let i = 0; i < 8; i++) {
+  for (let i = 0, n = lenOf('jp'); i < n; i++) {
     const toks = []; let len = 0;
     while (len < 34) { const t = draw(); toks.push(t); len += t.length + 1; }
     items.push({type:'code', text:toks.join(' ')});
@@ -528,6 +532,26 @@ function loadItem(){
   if (it.type === 'ime') { it.prev = ''; const inp = $('#imeInput'); inp.value = ''; }
 }
 
+/* ---------- sound ---------- */
+let AC = null;
+function tone(freq, dur, type, vol, delay){
+  if (!DB.settings.sound) return;
+  try {
+    AC = AC || new (window.AudioContext || window.webkitAudioContext)();
+    if (AC.state === 'suspended') AC.resume();
+    const t0 = AC.currentTime + (delay || 0), o = AC.createOscillator(), g = AC.createGain();
+    o.type = type; o.frequency.value = freq;
+    g.gain.setValueAtTime(vol, t0); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    o.connect(g); g.connect(AC.destination); o.start(t0); o.stop(t0 + dur + 0.02);
+  } catch(e){}
+}
+const sfx = {
+  hit(){ tone(1100 + Math.random() * 120, 0.04, 'square', 0.035); },
+  miss(){ tone(150, 0.14, 'sawtooth', 0.07); },
+  item(){ tone(880, 0.08, 'triangle', 0.08); },
+  done(){ [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.18, 'triangle', 0.09, i * 0.09)); }
+};
+
 /* ---------- key stats ---------- */
 function keyName(ch){ return ch === '\n' ? '⏎' : ch.toLowerCase(); }
 function rec(ch, ok, lat){
@@ -542,12 +566,12 @@ function hit(ch){
   const now = performance.now();
   const lat = S.correct > 0 ? now - S.lastT : null;
   S.lastT = now; S.correct++;
-  rec(ch, true, lat);
+  rec(ch, true, lat); sfx.hit();
 }
 function miss(ch){
   S.miss++;
   if (ch != null) { const k = keyName(ch); S.missKeys[k] = (S.missKeys[k] || 0) + 1; }
-  rec(ch, false);
+  rec(ch, false); sfx.miss();
   const b = $('#body'); b.classList.remove('flash'); void b.offsetWidth; b.classList.add('flash');
   clearTimeout(miss.t); miss.t = setTimeout(() => b.classList.remove('flash'), 160);
 }
@@ -611,7 +635,7 @@ function imeCheck(){
   if (!S.start) { S.start = performance.now(); }
   const prev = it.prev || '';
   let p = 0; while (p < prev.length && p < v.length && prev[p] === v[p]) p++;
-  for (let i = p; i < v.length; i++) if (v[i] !== t[i]) { S.miss++; const k = v[i]; S.missKeys[k] = (S.missKeys[k]||0) + 1; }
+  for (let i = p; i < v.length; i++) if (v[i] !== t[i]) { S.miss++; sfx.miss(); const k = v[i]; S.missKeys[k] = (S.missKeys[k]||0) + 1; }
   it.prev = v;
   if (v.replace(/\s+$/,'') === t) { S.correct += t.length; nextItem(); }
   render();
@@ -628,6 +652,7 @@ $('#imeInput').addEventListener('keydown', e => {
 function nextItem(){
   S.idx++;
   if (S.idx >= S.items.length) return finish();
+  sfx.item();
   loadItem();
 }
 function speed(){
@@ -647,7 +672,7 @@ function rankOf(spd, ime){
   return names[i];
 }
 function finish(){
-  S.end = performance.now(); S.finished = true;
+  S.end = performance.now(); S.finished = true; sfx.done();
   if (S.start) {
     DB.history.push({t:Date.now(), mode:modeKey(), spd:Math.round(speed()), acc:accuracy() ?? 1, sec:Math.round((S.end - S.start)/1000), miss:S.miss});
     if (DB.history.length > 500) DB.history = DB.history.slice(-500);
@@ -760,7 +785,8 @@ function setMode(m){
   $('#rec').hidden = view !== 'rec';
   ['code','roma','ime','weak'].forEach(k => { $('#ctl-' + k).hidden = k !== mode; });
   $('#lblSkip').hidden = !(mode === 'code' || mode === 'roma' || mode === 'weak');
-  $('#optSkip').checked = DB.settings.skip;
+  $('#optSkip').checked = DB.settings.skip; $('#selLen').value = DB.settings.len; $('#optSound').checked = DB.settings.sound;
+  $('#lblLen').hidden = (mode === 'ime' && sub.ime === 'custom');
   updateCustomBox();
   if (view === 'rec') { renderRecords(); return; }
   if (mode === 'weak') {
@@ -789,8 +815,10 @@ function updateCustomBox(){
 document.querySelectorAll('#tabs button').forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
 $('#selCode').addEventListener('change', e => { sub.code = e.target.value; updateCustomBox(); newSession(); focusStage(); });
 $('#selRoma').addEventListener('change', e => { sub.roma = e.target.value; newSession(); focusStage(); });
-$('#selIme').addEventListener('change', e => { sub.ime = e.target.value; updateCustomBox(); newSession(); focusStage(); });
+$('#selIme').addEventListener('change', e => { sub.ime = e.target.value; $('#lblLen').hidden = sub.ime === 'custom'; updateCustomBox(); newSession(); focusStage(); });
 $('#optIndent').addEventListener('change', e => { opt.indent = e.target.checked; newSession(); focusStage(); });
+$('#selLen').addEventListener('change', e => { DB.settings.len = e.target.value; saveDB(); newSession(); focusStage(); });
+$('#optSound').addEventListener('change', e => { DB.settings.sound = e.target.checked; saveDB(); sfx.item(); focusStage(); });
 $('#optSkip').addEventListener('change', e => { DB.settings.skip = e.target.checked; saveDB(); newSession(); focusStage(); });
 $('#optGuide').addEventListener('change', e => { opt.guide = e.target.checked; render(); focusStage(); });
 $('#customApply').addEventListener('click', () => {
