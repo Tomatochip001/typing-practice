@@ -8,13 +8,15 @@ const A = require('./_lib/auth');
 const MAX_RUNS_IN = 20000, PAGE = 20000, MAX_KEYS = 200, MAX_PREFS_BYTES = 150 * 1024;
 const num = (v, min, max) => typeof v === 'number' && Number.isFinite(v) && v >= min && v <= max;
 const int = (v, min, max) => num(v, min, max) ? Math.round(v) : null;
+// 範囲外の数値は捨てずに範囲内へ丸める(記録が黙って消えないように)
+const clamp = (v, min, max) => typeof v === 'number' && Number.isFinite(v) ? Math.round(Math.min(max, Math.max(min, v))) : null;
 
 function cleanRuns(list) {
   const out = { t: [], mode: [], spd: [], acc: [], sec: [], miss: [] };
   if (!Array.isArray(list)) return out;
   for (const r of list.slice(0, MAX_RUNS_IN)) {
     if (!r || typeof r.mode !== 'string' || !/^[a-z]{1,10}(:[a-z]{1,10})?$/.test(r.mode)) continue;
-    const t = int(r.t, 1e12, 4e12), spd = int(r.spd, 0, 5000), sec = int(r.sec, 0, 86400), miss = int(r.miss, 0, 100000);
+    const t = int(r.t, 1e12, 4e12), spd = clamp(r.spd, 0, 100000), sec = clamp(r.sec, 0, 86400), miss = clamp(r.miss, 0, 1000000);
     if (t === null || spd === null || sec === null || miss === null || !num(r.acc, 0, 1)) continue;
     out.t.push(t); out.mode.push(r.mode); out.spd.push(spd); out.acc.push(r.acc); out.sec.push(sec); out.miss.push(miss);
   }
