@@ -1,0 +1,927 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+</head>
+<body>
+<title>打鍵道場</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DotGothic16&family=M+PLUS+1+Code:wght@400;600&family=Zen+Kaku+Gothic+New:wght@400;700&display=swap" rel="stylesheet">
+<style>
+/* Layout: one practice desk — mode rail on top, the stage is the only framed object, records sit below as plain ruled sections */
+:root{
+  --bg:#e8ecf0; --panel:#fbfcfd; --ink:#17212c; --muted:#5a6776; --line:#cdd5de;
+  --accent:#3346c9; --accent-soft:#dde2fb; --on-accent:#ffffff;
+  --ok:#1d8556; --bad:#c3372c; --heat:#d2452f;
+  --cur-bg:#ffe27a; --cur-fg:#17212c;
+  --f-display:"DotGothic16","M PLUS 1 Code",monospace;
+  --f-body:"Zen Kaku Gothic New","Hiragino Sans","Yu Gothic UI","Meiryo",sans-serif;
+  --f-mono:"M PLUS 1 Code","Consolas","Menlo",monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f141b; --panel:#171e28; --ink:#e5eaf0; --muted:#94a1b1; --line:#2b3644;
+  --accent:#8b98ff; --accent-soft:#262f5a; --on-accent:#0f141b;
+  --ok:#4fc58d; --bad:#ff6f61; --heat:#ff7a5c; --cur-bg:#5b4a10; --cur-fg:#fff3c4; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f141b; --panel:#171e28; --ink:#e5eaf0; --muted:#94a1b1; --line:#2b3644;
+  --accent:#8b98ff; --accent-soft:#262f5a; --on-accent:#0f141b;
+  --ok:#4fc58d; --bad:#ff6f61; --heat:#ff7a5c; --cur-bg:#5b4a10; --cur-fg:#fff3c4; color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.6}
+.wrap{max-width:980px;margin:0 auto;padding-inline:16px;padding-block:22px 56px;display:flex;flex-direction:column;gap:18px}
+header.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px}
+.brand h1{font-family:var(--f-display);font-weight:400;font-size:36px;margin:0;line-height:1;letter-spacing:.06em}
+.brand p{margin:6px 0 0;color:var(--muted);font-size:13px}
+.tabs{display:flex;flex-wrap:wrap;gap:3px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:4px}
+.tabs button{font:inherit;font-size:14px;border:0;background:transparent;color:var(--muted);padding:6px 13px;border-radius:7px;cursor:pointer}
+.tabs button:hover{color:var(--ink)}
+.tabs button[aria-selected="true"]{background:var(--accent);color:var(--on-accent);font-weight:700}
+button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.controls{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;font-size:14px;color:var(--muted)}
+select{font:inherit;font-size:14px;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:4px 8px;margin-left:6px}
+.chk{display:inline-flex;align-items:center;gap:6px;cursor:pointer}
+.chk input{accent-color:var(--accent)}
+.btn{font:inherit;font-size:14px;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:8px;padding:7px 14px;cursor:pointer}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:700}
+.btn.danger{color:var(--bad)}
+#customBox{display:flex;flex-direction:column;gap:8px}
+#customText{font-family:var(--f-mono);font-size:14px;width:100%;min-height:130px;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--ink);resize:vertical}
+.stage{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px 22px;min-height:340px;display:flex;flex-direction:column;gap:14px;outline:none}
+.stage:focus-visible,.stage:focus{box-shadow:0 0 0 3px var(--accent-soft)}
+.hud{display:flex;flex-wrap:wrap;gap:6px 26px;align-items:baseline;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.hud span{display:inline-flex;align-items:baseline;gap:6px}
+.hud b{color:var(--ink);font-size:20px;font-family:var(--f-display);font-weight:400}
+.bar{height:4px;background:var(--line);border-radius:2px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--accent);width:0;transition:width .15s}
+.warn{background:var(--bad);color:var(--on-accent);border-radius:8px;padding:6px 12px;font-size:14px;font-weight:700}
+#body{min-width:0}
+.code{font-family:var(--f-mono);font-size:17px;line-height:1.8;white-space:pre;overflow-x:auto;margin:0;padding:6px 2px}
+.done{color:var(--ok)}
+.rest{color:var(--muted)}
+.cur{background:var(--cur-bg);color:var(--cur-fg);border-radius:3px;box-shadow:0 2px 0 var(--accent)}
+.flash .cur{background:var(--bad);color:var(--on-accent);box-shadow:none}
+.jp-text{font-size:27px;font-weight:700;line-height:1.5;text-wrap:balance;margin:6px 0 0}
+.jp-kana{font-size:17px;color:var(--muted);margin:0}
+.jp-roma{font-family:var(--f-mono);font-size:21px;letter-spacing:.02em;word-break:break-all;margin:4px 0 0}
+.next{font-size:13px;color:var(--muted);border-top:1px dashed var(--line);padding-top:8px}
+.ime-target{font-size:25px;line-height:1.7;font-weight:700;margin:6px 0 0}
+.ime-target .ok{color:var(--ok)}
+.ime-target .ng{color:var(--bad);text-decoration:underline wavy;text-underline-offset:5px}
+.ime-target .rest{color:var(--ink);opacity:.55}
+#imeInput{font:inherit;font-size:20px;width:100%;padding:10px 12px;border:2px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink)}
+#imeInput:focus{outline:none;border-color:var(--accent)}
+.hint{font-size:12.5px;color:var(--muted)}
+kbd{font-family:var(--f-mono);font-size:11.5px;border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 5px;background:var(--bg);color:var(--ink)}
+.result{display:flex;flex-direction:column;gap:16px}
+.rank{font-family:var(--f-display);font-size:15px;color:var(--accent);letter-spacing:.1em}
+.r-main{display:flex;flex-wrap:wrap;gap:12px 40px;align-items:flex-end}
+.r-main div{display:flex;flex-direction:column}
+.lbl{font-size:12px;color:var(--muted);letter-spacing:.06em}
+.big{font-family:var(--f-display);font-size:64px;line-height:1;font-variant-numeric:tabular-nums}
+.mid{font-family:var(--f-display);font-size:34px;line-height:1.1;font-variant-numeric:tabular-nums}
+.unit{font-size:13px;color:var(--muted)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font-family:var(--f-mono);font-size:13px;border:1px solid var(--line);border-radius:999px;padding:2px 10px;background:var(--bg)}
+.chip b{color:var(--bad);font-weight:600;margin-right:6px}
+.btns{display:flex;flex-wrap:wrap;gap:8px}
+/* records */
+.rec{display:flex;flex-direction:column;gap:28px}
+.sec{display:flex;flex-direction:column;gap:10px;border-top:1px solid var(--line);padding-top:14px;min-width:0}
+.sec-h{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px}
+.sec h2{font-size:16px;margin:0;font-weight:700}
+.rec-grid{display:grid;grid-template-columns:1fr;gap:28px}
+@media (min-width:780px){.rec-grid{grid-template-columns:3fr 2fr}}
+.chart{position:relative;min-height:220px}
+.chart svg{display:block;width:100%;height:auto}
+.chart text{fill:var(--muted);font-size:11px;font-family:var(--f-mono)}
+.tip{position:absolute;pointer-events:none;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:12px;box-shadow:0 4px 14px rgba(0,0,0,.12);white-space:nowrap;color:var(--ink)}
+.tip b{font-family:var(--f-display);font-weight:400;font-size:16px}
+.empty{color:var(--muted);font-size:14px;padding:30px 0}
+.weak-list{display:flex;flex-direction:column;gap:6px}
+.wk{display:grid;grid-template-columns:44px 1fr auto;gap:10px;align-items:center;font-size:13px;font-variant-numeric:tabular-nums}
+.wk .k{font-family:var(--f-mono);font-size:16px;border:1px solid var(--line);border-radius:6px;text-align:center;background:var(--bg)}
+.wk .m{height:6px;background:var(--line);border-radius:3px;overflow:hidden}
+.wk .m i{display:block;height:100%;background:var(--heat)}
+.wk .v{color:var(--muted)}
+.kb-wrap{overflow-x:auto;padding-bottom:4px}
+.kb{display:flex;flex-direction:column;gap:4px;width:max-content}
+.kb .row{display:flex;gap:4px}
+.key{width:38px;height:38px;flex:none;border-radius:6px;border:1px solid var(--line);font-family:var(--f-mono);font-size:14px;position:relative;cursor:default;color:var(--ink)}
+.key .b{position:absolute;left:6px;top:3px}
+.key .s{position:absolute;right:5px;bottom:2px;font-size:10px;opacity:.7}
+.key.few{border-style:dashed;color:var(--muted)}
+.key:hover{outline:2px solid var(--accent)}
+.tbl{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13px;font-variant-numeric:tabular-nums}
+th,td{text-align:left;padding:6px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+th{color:var(--muted);font-weight:400;font-size:12px}
+@media (max-width:520px){.jp-text{font-size:22px}.big{font-size:52px}.code{font-size:15px}}
+@media (prefers-reduced-motion:reduce){.bar i{transition:none}}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <h1>打鍵道場</h1>
+      <p>コードとAIプロンプトを、速く正確に打つための練習場</p>
+    </div>
+    <nav class="tabs" role="tablist" id="tabs">
+      <button role="tab" data-mode="code">コード</button>
+      <button role="tab" data-mode="roma">ローマ字</button>
+      <button role="tab" data-mode="ime">IME変換</button>
+      <button role="tab" data-mode="weak">苦手特訓</button>
+      <button role="tab" data-mode="rec">記録</button>
+    </nav>
+  </header>
+
+  <section id="play" style="display:flex;flex-direction:column;gap:14px">
+    <div class="controls" id="ctl-code">
+      <label>言語<select id="selCode">
+        <option value="cs">C# (Unity)</option><option value="py">Python</option><option value="js">JavaScript</option>
+        <option value="sym">記号ラッシュ</option><option value="custom">自作コード</option></select></label>
+      <label class="chk"><input type="checkbox" id="optIndent" checked> インデントを自動で入力</label>
+    </div>
+    <div class="controls" id="ctl-roma">
+      <label>お題<select id="selRoma">
+        <option value="prompt">AIプロンプト</option><option value="daily">日常・連絡</option><option value="mix">ミックス</option></select></label>
+      <label class="chk"><input type="checkbox" id="optGuide" checked> ローマ字ガイドを表示</label>
+    </div>
+    <div class="controls" id="ctl-ime">
+      <label>お題<select id="selIme">
+        <option value="prompt">AIプロンプト</option><option value="daily">日常・連絡</option><option value="custom">自作(1行=1問)</option></select></label>
+    </div>
+    <div class="controls" id="ctl-weak"><span id="weakInfo"></span></div>
+    <div id="customBox" hidden>
+      <textarea id="customText" spellcheck="false" placeholder=""></textarea>
+      <div class="btns"><button class="btn primary" id="customApply">このテキストで練習</button></div>
+    </div>
+
+    <div class="stage" id="stage" tabindex="0">
+      <div class="hud">
+        <span>問題 <b id="hNum">1/3</b></span>
+        <span>速度 <b id="hSpd">0</b><i id="hUnit">打/分</i></span>
+        <span>正確率 <b id="hAcc">-</b></span>
+        <span>時間 <b id="hTime">0:00</b></span>
+      </div>
+      <div class="bar"><i id="prog"></i></div>
+      <div id="warn" class="warn" hidden>IMEがオンになっています。半角英数に切り替えてください(半角/全角キー)。</div>
+      <div id="body"></div>
+      <div id="imeWrap" hidden><input id="imeInput" autocomplete="off" spellcheck="false" placeholder="ここに入力(IMEで変換してOK)"></div>
+      <div class="hint" id="hint"></div>
+    </div>
+  </section>
+
+  <section id="rec" class="rec" hidden>
+    <div class="rec-grid">
+      <div class="sec">
+        <div class="sec-h"><h2>速度の推移</h2>
+          <select id="selHist"><option value="code">コード</option><option value="roma">ローマ字</option><option value="ime">IME変換</option><option value="weak">苦手特訓</option></select></div>
+        <div id="chart" class="chart"></div>
+      </div>
+      <div class="sec">
+        <div class="sec-h"><h2>苦手キー</h2><span class="hint">ミス率と反応の遅さから計算</span></div>
+        <div id="weakList" class="weak-list"></div>
+      </div>
+    </div>
+    <div class="sec">
+      <div class="sec-h"><h2>キーごとのミス率</h2>
+        <select id="selLayout"><option value="jis">JIS配列</option><option value="us">US配列</option></select></div>
+      <div class="kb-wrap"><div id="kb" class="kb"></div></div>
+      <div id="kbInfo" class="hint">キーにカーソルを合わせると詳細が出ます。点線のキーはまだデータが少ないキーです。</div>
+    </div>
+    <div class="sec">
+      <h2>最近の記録</h2>
+      <div class="tbl"><table id="histTbl"></table></div>
+    </div>
+    <div class="btns"><button class="btn danger" id="resetBtn">記録をリセット</button></div>
+  </section>
+</div>
+
+<script type="text/plain" id="data">
+@@prompt
+以下のコードのバグを見つけて修正してください。|いかのコードのバグをみつけてしゅうせいしてください。
+この関数が何をしているか、初心者向けに説明して。|このかんすうがなにをしているか、しょしんしゃむけにせつめいして。
+箇条書きで3つにまとめてください。|かじょうがきでみっつにまとめてください。
+エラーメッセージを貼るので、原因を教えて。|エラーメッセージをはるので、げんいんをおしえて。
+UnityでC#を使って、車を前に進めるスクリプトを書いて。|unityでc#をつかって、くるまをまえにすすめるスクリプトをかいて。
+もっと短く、わかりやすい言葉で書き直して。|もっとみじかく、わかりやすいことばでかきなおして。
+前の回答の2番目について、詳しく教えてください。|まえのかいとうのにばんめについて、くわしくおしえてください。
+表形式で比較してください。|ひょうけいしきでひかくしてください。
+あなたはプロの編集者です。次の文章を校正してください。|あなたはプロのへんしゅうしゃです。つぎのぶんしょうをこうせいしてください。
+変数名をわかりやすく変えて、コメントも追加して。|へんすうめいをわかりやすくかえて、コメントもついかして。
+文化祭で使うゲームのアイデアを10個出して。|ぶんかさいでつかうゲームのアイデアをじゅっこだして。
+手順を一つずつ、番号付きで教えて。|てじゅんをひとつずつ、ばんごうつきでおしえて。
+処理が重いので、もっと速くする方法はある？|しょりがおもいので、もっとはやくするほうほうはある？
+出力はJSON形式だけにしてください。|しゅつりょくはjsonけいしきだけにしてください。
+結論から先に、理由はそのあとに書いて。|けつろんからさきに、りゆうはそのあとにかいて。
+このエラーが出る原因として、考えられるものを全部挙げて。|このエラーがでるげんいんとして、かんがえられるものをぜんぶあげて。
+小学生にもわかるように、例え話で説明して。|しょうがくせいにもわかるように、たとえばなしでせつめいして。
+修正した部分だけを差分で見せて。|しゅうせいしたぶぶんだけをさぶんでみせて。
+回答は日本語で、専門用語には説明をつけて。|かいとうはにほんごで、せんもんようごにはせつめいをつけて。
+このプロンプトをもっと良くするには？|このプロンプトをもっとよくするには？
+@@daily
+了解です。明日の放課後に集まりましょう。|りょうかいです。あしたのほうかごにあつまりましょう。
+資料を共有したので確認お願いします。|しりょうをきょうゆうしたのでかくにんおねがいします。
+遅れてすみません、あと五分で着きます。|おくれてすみません、あとごふんでつきます。
+文化祭の準備、順調に進んでいます。|ぶんかさいのじゅんび、じゅんちょうにすすんでいます。
+結論として、この方法が一番効率的だと考えます。|けつろんとして、このほうほうがいちばんこうりつてきだとかんがえます。
+質問があれば、いつでも気軽に聞いてください。|しつもんがあれば、いつでもきがるにきいてください。
+今日の会議の内容を簡単にまとめました。|きょうのかいぎのないようをかんたんにまとめました。
+来週の予定が決まったら連絡します。|らいしゅうのよていがきまったられんらくします。
+その件については、もう少し検討させてください。|そのけんについては、もうすこしけんとうさせてください。
+ゲームの難易度を少し下げてみました。|ゲームのなんいどをすこしさげてみました。
+写真をありがとう！とても助かりました。|しゃしんをありがとう！とてもたすかりました。
+締め切りは金曜日の午後五時です。|しめきりはきんようびのごごごじです。
+新しい機能を追加したので試してみて。|あたらしいきのうをついかしたのでためしてみて。
+頭文字Nのコースを一周走った感想を教えて。|いにしゃるえぬのコースをいっしゅうはしったかんそうをおしえて。
+説明が長くなりそうなので、要点だけ先に送ります。|せつめいがながくなりそうなので、ようてんだけさきにおくります。
+@@cs
+using UnityEngine;
+
+public class CarController : MonoBehaviour
+{
+    [SerializeField] private float maxSpeed = 30f;
+    private Rigidbody rb;
+
+    void Start()
+    {
+        rb = GetComponent<Rigidbody>();
+    }
+}
+@@cs
+void FixedUpdate()
+{
+    float input = Input.GetAxis("Vertical");
+    rb.AddForce(transform.forward * input * maxSpeed);
+}
+@@cs
+if (Input.GetKeyDown(KeyCode.Space) && isGrounded)
+{
+    rb.velocity = new Vector3(rb.velocity.x, jumpPower, 0f);
+}
+@@cs
+foreach (var cp in checkpoints)
+{
+    float d = Vector3.Distance(transform.position, cp.position);
+    if (d < 5f) { lap++; Debug.Log($"Lap: {lap}"); }
+}
+@@cs
+public int Score { get; private set; } = 0;
+
+public void AddScore(int value)
+{
+    Score += value;
+    scoreText.text = $"SCORE {Score:D6}";
+}
+@@cs
+private void OnTriggerEnter(Collider other)
+{
+    if (other.CompareTag("Goal"))
+    {
+        timer.Stop();
+    }
+}
+@@py
+def count_words(text: str) -> dict[str, int]:
+    counts = {}
+    for w in text.split():
+        counts[w] = counts.get(w, 0) + 1
+    return counts
+@@py
+import json
+
+with open("data.json", encoding="utf-8") as f:
+    data = json.load(f)
+print(len(data["items"]))
+@@py
+nums = [x * 2 for x in range(10) if x % 3 == 0]
+print(f"result: {nums!r}")
+@@py
+class Player:
+    def __init__(self, name, hp=100):
+        self.name = name
+        self.hp = hp
+
+    def is_alive(self):
+        return self.hp > 0
+@@py
+try:
+    value = int(input("> "))
+except ValueError as e:
+    print("error:", e)
+@@js
+const res = await fetch(`/api/users/${id}`);
+if (!res.ok) throw new Error("failed: " + res.status);
+const user = await res.json();
+@@js
+const total = items
+  .filter((it) => it.price > 0)
+  .reduce((sum, it) => sum + it.price, 0);
+@@js
+document.querySelector("#start").addEventListener("click", () => {
+  game.state = "playing";
+  requestAnimationFrame(loop);
+});
+@@js
+let best = JSON.parse(localStorage.getItem("best") ?? "{}");
+best[mode] = Math.max(best[mode] || 0, score);
+@@js
+export function clamp(v, min = 0, max = 1) {
+  return v < min ? min : v > max ? max : v;
+}
+@@sym
+a[i] = b[j] + c[k];
+if (x != y && y >= 0) { z++; }
+obj?.items?.[0] ?? null
+const f = (a, b) => a - b;
+"str" + 'chr' + `tpl ${v}`
+#include <stdio.h>
+arr[0] |= mask & 0xFF;
+path = "C:\\Users\\data"
+dict = {"key": [1, 2, 3]}
+x = y % 2 == 0 ? "even" : "odd";
+List<int> list = new List<int>();
+print(f"{name!r:>10}")
+@user #tag $price ^up ~home
+return !(a || b) && c;
+i += 1; j -= 2; k *= 3;
+<div class="box">{text}</div>
+@@pool
+return function const let var public private static void int float bool string class struct new this self None True False null undefined async await import from export default if else elif for foreach while break continue switch case try catch finally throw yield lambda print len range list dict map filter reduce length push pop index value result count items data json path open GetComponent<Rigidbody>() transform.position Vector3.zero Quaternion.identity Time.deltaTime Debug.Log("ok"); Input.GetKey(KeyCode.W) Mathf.Clamp(x,0,1) rb.velocity.magnitude console.log(x); querySelector("#id") arr.map(x=>x*2) obj?.value??0 a!==b x>=10&&y<=20 i++ j-- {} [] () <> :: -> => != == += -= *= /= %= || && "str" 'c' `tpl` #define @property $value ^xor ~not |pipe snake_case camelCase PascalCase MAX_SIZE __init__ self.hp kansuu shuusei setsumei hensuu konpairu ryoukai arigatou onegaishimasu yoroshiku zyunbi kyoyuu chousei bunkasai purogura
+</script>
+
+<script>
+(function(){
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const STORE = 'dakendojo-v1';
+function loadDB(){ try { return JSON.parse(localStorage.getItem(STORE)); } catch(e){ return null; } }
+function saveDB(){ try { localStorage.setItem(STORE, JSON.stringify(DB)); } catch(e){} }
+let DB = Object.assign({keys:{}, history:[], customCode:'', customIme:'', layout:'jis'}, loadDB() || {});
+
+/* ---------- data ---------- */
+const blocks = {};
+$('#data').textContent.split(/^@@/m).forEach(b => {
+  if (!b.trim()) return;
+  const nl = b.indexOf('\n');
+  const tag = b.slice(0, nl).trim();
+  const body = b.slice(nl + 1).replace(/\s+$/, '');
+  (blocks[tag] = blocks[tag] || []).push(body);
+});
+const pairs = tag => blocks[tag][0].split('\n').filter(Boolean).map(l => l.split('|'));
+const JP = { prompt: pairs('prompt'), daily: pairs('daily') };
+const POOL = blocks.pool[0].split(/\s+/).filter(Boolean);
+
+function normCode(s){
+  return s.replace(/\r/g,'').replace(/\t/g,'    ').split('\n').map(l => l.replace(/\s+$/,'')).join('\n').replace(/^\n+|\n+$/g,'');
+}
+function shuffle(a){ a = a.slice(); for (let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+const pick = (a,n) => shuffle(a).slice(0,n);
+
+/* ---------- romaji engine ---------- */
+const K1 = {}, K2 = {};
+function def(target, str){ str.trim().split(/\s+/).forEach(p => { const [k,v] = p.split('='); target[k] = v.split('|'); }); }
+def(K1, `あ=a い=i う=u|wu|whu え=e お=o か=ka|ca き=ki く=ku|cu|qu け=ke こ=ko|co さ=sa し=shi|si|ci す=su せ=se|ce そ=so
+た=ta ち=chi|ti つ=tsu|tu て=te と=to な=na に=ni ぬ=nu ね=ne の=no は=ha ひ=hi ふ=fu|hu へ=he ほ=ho
+ま=ma み=mi む=mu め=me も=mo や=ya ゆ=yu よ=yo ら=ra り=ri る=ru れ=re ろ=ro わ=wa を=wo
+が=ga ぎ=gi ぐ=gu げ=ge ご=go ざ=za じ=ji|zi ず=zu ぜ=ze ぞ=zo だ=da ぢ=di づ=du で=de ど=do
+ば=ba び=bi ぶ=bu べ=be ぼ=bo ぱ=pa ぴ=pi ぷ=pu ぺ=pe ぽ=po
+ぁ=la|xa ぃ=li|xi|lyi|xyi ぅ=lu|xu ぇ=le|xe|lye|xye ぉ=lo|xo ゃ=lya|xya ゅ=lyu|xyu ょ=lyo|xyo ゎ=lwa|xwa ゔ=vu`);
+const yRows = {き:['ky'],ぎ:['gy'],に:['ny'],ひ:['hy'],び:['by'],ぴ:['py'],み:['my'],り:['ry'],ぢ:['dy'],
+  し:['sh','sy'],じ:['j','zy','jy'],ち:['ch','cy','ty']};
+for (const [k,ps] of Object.entries(yRows)) {
+  [['ゃ','a'],['ゅ','u'],['ょ','o'],['ぇ','e']].forEach(([s,v]) => { K2[k+s] = ps.map(p => p+v); });
+}
+def(K2, `てぃ=thi でぃ=dhi でゅ=dhu ふぁ=fa ふぃ=fi ふぇ=fe ふぉ=fo ふゅ=fyu うぃ=wi|whi うぇ=we|whe うぉ=who
+つぁ=tsa とぅ=twu どぅ=dwu ゔぁ=va ゔぃ=vi ゔぇ=ve ゔぉ=vo`);
+const SMALL = 'ぁぃぅぇぉゃゅょゎ';
+const PUNCT = {'、':',','。':'.','ー':'-','「':'[','」':']','『':'[','』':']','・':'/','〜':'~','～':'~'};
+const SOKU = ['xtu','ltu','xtsu','ltsu'];
+
+function tokenize(reading){
+  const src = reading.normalize('NFKC');
+  const s = src.replace(/[\u30a1-\u30f6]/g, c => String.fromCharCode(c.charCodeAt(0) - 0x60));
+  const u = [];
+  for (let i = 0; i < s.length;) {
+    const c = s[i], two = s.slice(i, i+2);
+    if (c === 'っ') { u.push({o:src[i], sok:true}); i++; continue; }
+    if (c === 'ん') { u.push({o:src[i], n:true}); i++; continue; }
+    if (two.length === 2 && (K2[two] || (K1[c] && SMALL.includes(s[i+1]) && K1[s[i+1]]))) {
+      const prod = (K1[c]||[]).flatMap(a => (K1[s[i+1]]||[]).map(b => a+b));
+      u.push({o:src.slice(i,i+2), kana:true, cands:[...new Set([...(K2[two]||[]), ...prod])]}); i += 2; continue;
+    }
+    if (K1[c]) u.push({o:src[i], kana:true, cands:K1[c].slice()});
+    else if (PUNCT[c]) u.push({o:src[i], cands:[PUNCT[c]]});
+    else u.push({o:src[i], cands:[c.toLowerCase()]});
+    i++;
+  }
+  // っ: merge with following kana
+  const out = [];
+  for (let i = 0; i < u.length; i++) {
+    const x = u[i];
+    if (x.sok) {
+      const nx = u[i+1];
+      if (nx && nx.kana) {
+        const dbl = nx.cands.filter(r => /^[bcdfghjkmpqrstvwxyz]/.test(r)).map(r => r[0] + r);
+        out.push({o:x.o + nx.o, kana:true, cands:[...new Set([...dbl, ...SOKU.flatMap(p => nx.cands.map(r => p + r))])]});
+        i++;
+      } else out.push({o:x.o, cands:SOKU.slice()});
+    } else out.push(x);
+  }
+  // ん
+  out.forEach((x, i) => {
+    if (!x.n) return;
+    const nx = out[i+1];
+    const single = nx && !nx.n && nx.cands.every(r => !/^[aiueony']/.test(r));
+    x.cands = single ? ['n','nn','xn'] : ['nn','xn'];
+  });
+  return out;
+}
+
+/* ---------- state ---------- */
+let mode = 'code', view = 'play';
+const sub = {code:'cs', roma:'prompt', ime:'prompt'};
+let S = null;
+const cur = () => S.items[S.idx];
+
+function buildItems(){
+  if (mode === 'code') {
+    const l = sub.code;
+    if (l === 'custom') {
+      const t = normCode(DB.customCode || '');
+      if (!t) return [{type:'code', text:'// 上の欄に自分のコードを貼り付けて「このテキストで練習」を押してください'}];
+      const lines = t.split('\n'), chunks = [];
+      for (let i = 0; i < lines.length; i += 10) { const c = normCode(lines.slice(i, i+10).join('\n')); if (c) chunks.push(c); }
+      return chunks.map(text => ({type:'code', text}));
+    }
+    if (l === 'sym') return pick(blocks.sym[0].split('\n').filter(Boolean), 8).map(text => ({type:'code', text}));
+    return pick(blocks[l], 3).map(t => ({type:'code', text:normCode(t)}));
+  }
+  if (mode === 'roma') {
+    const src = sub.roma === 'mix' ? JP.prompt.concat(JP.daily) : JP[sub.roma];
+    return pick(src, 8).map(([text, reading]) => ({type:'roma', text, reading}));
+  }
+  if (mode === 'ime') {
+    if (sub.ime === 'custom') {
+      const ls = (DB.customIme || '').split('\n').map(l => l.trim()).filter(Boolean);
+      if (!ls.length) return [{type:'ime', text:'上の欄に練習したい文章を1行ずつ入れてください。'}];
+      return ls.map(text => ({type:'ime', text}));
+    }
+    return pick(JP[sub.ime], 8).map(([text]) => ({type:'ime', text}));
+  }
+  return genWeak();
+}
+
+function weakKeys(n){
+  const all = Object.entries(DB.keys);
+  let tl = 0, tc = 0; all.forEach(([,v]) => { tl += v.t; tc += v.c; });
+  const avg = tc ? tl / tc : 0;
+  return all.filter(([k,v]) => v.n >= 8 && k !== ' ' && k !== '⏎')
+    .map(([k,v]) => {
+      const rate = v.m / v.n, ms = v.c ? v.t / v.c : 0;
+      return {k, rate, ms, n:v.n, score: rate * 4 + (avg && ms ? ms / avg - 1 : 0)};
+    })
+    .filter(x => x.score > 0.15).sort((a,b) => b.score - a.score).slice(0, n);
+}
+function genWeak(){
+  const wk = weakKeys(6).map(w => w.k);
+  const w = tok => { if (!wk.length) return 1; let c = 0; for (const ch of tok.toLowerCase()) if (wk.includes(ch)) c++; return 0.2 + c * 1.5; };
+  const weights = POOL.map(w), total = weights.reduce((a,b) => a+b, 0);
+  const draw = () => { let r = Math.random() * total; for (let i = 0; i < POOL.length; i++) { r -= weights[i]; if (r <= 0) return POOL[i]; } return POOL[0]; };
+  const items = [];
+  for (let i = 0; i < 8; i++) {
+    const toks = []; let len = 0;
+    while (len < 34) { const t = draw(); toks.push(t); len += t.length + 1; }
+    items.push({type:'code', text:toks.join(' ')});
+  }
+  return items;
+}
+
+function newSession(){
+  S = {items:buildItems(), idx:0, start:0, end:0, correct:0, miss:0, lastT:0, missKeys:{}, finished:false};
+  loadItem();
+  render();
+}
+function loadItem(){
+  const it = cur();
+  if (it.type === 'code') it.pos = 0;
+  if (it.type === 'roma') { it.units = tokenize(it.reading); it.ui = 0; it.buf = ''; }
+  if (it.type === 'ime') { it.prev = ''; const inp = $('#imeInput'); inp.value = ''; }
+}
+
+/* ---------- key stats ---------- */
+function keyName(ch){ return ch === '\n' ? '⏎' : ch.toLowerCase(); }
+function rec(ch, ok, lat){
+  if (ch == null) return;
+  const k = keyName(ch);
+  const v = DB.keys[k] || (DB.keys[k] = {n:0, m:0, t:0, c:0});
+  v.n++;
+  if (!ok) v.m++;
+  else if (lat != null && lat < 2000) { v.t += lat; v.c++; }
+}
+function hit(ch){
+  const now = performance.now();
+  const lat = S.correct > 0 ? now - S.lastT : null;
+  S.lastT = now; S.correct++;
+  rec(ch, true, lat);
+}
+function miss(ch){
+  S.miss++;
+  if (ch != null) { const k = keyName(ch); S.missKeys[k] = (S.missKeys[k] || 0) + 1; }
+  rec(ch, false);
+  const b = $('#body'); b.classList.remove('flash'); void b.offsetWidth; b.classList.add('flash');
+  clearTimeout(miss.t); miss.t = setTimeout(() => b.classList.remove('flash'), 160);
+}
+
+/* ---------- code typing ---------- */
+const opt = { indent:true, guide:true };
+function codeKey(k){
+  const it = cur(), t = it.text, exp = t[it.pos];
+  if (k === '\t') {
+    if (exp === ' ') { let c = 0; while (t[it.pos] === ' ' && c < 4) { it.pos++; c++; } hit(' '); }
+    else miss(exp);
+  } else if (k === exp) {
+    it.pos++; hit(exp);
+    if (exp === '\n' && opt.indent) while (t[it.pos] === ' ') it.pos++;
+  } else miss(exp);
+  if (it.pos >= t.length) nextItem();
+}
+
+/* ---------- romaji typing ---------- */
+function step(it, k){
+  const u = it.units[it.ui]; if (!u) return false;
+  const nb = it.buf + k, m = u.cands.filter(r => r.startsWith(nb));
+  if (m.length) {
+    it.buf = nb;
+    if (m.length === 1 && m[0] === nb) { u.typed = nb; it.ui++; it.buf = ''; }
+    return true;
+  }
+  if (it.buf && u.cands.includes(it.buf)) { u.typed = it.buf; it.ui++; it.buf = ''; return step(it, k); }
+  return false;
+}
+function expectChar(it){
+  const u = it.units[it.ui]; if (!u) return null;
+  const c = u.cands.find(r => r.startsWith(it.buf)) || u.cands[0];
+  if (c.length === it.buf.length) { const nx = it.units[it.ui + 1]; return nx ? nx.cands[0][0] : null; }
+  return c[it.buf.length] || c[0];
+}
+function romaKey(k){
+  const it = cur();
+  if (k === '\n' || k === '\t') return;
+  const kk = k.length === 1 && /[A-Z]/.test(k) ? k.toLowerCase() : k;
+  const exp = expectChar(it);
+  if (step(it, kk)) hit(kk); else miss(exp);
+  if (it.ui >= it.units.length) nextItem();
+}
+
+/* ---------- IME typing ---------- */
+const nfkc = s => s.normalize('NFKC');
+let composing = false;
+function imeCheck(){
+  if (view !== 'play' || !S || S.finished || mode !== 'ime') return;
+  const it = cur(), inp = $('#imeInput');
+  const v = nfkc(inp.value), t = nfkc(it.text);
+  if (!S.start) { S.start = performance.now(); }
+  const prev = it.prev || '';
+  let p = 0; while (p < prev.length && p < v.length && prev[p] === v[p]) p++;
+  for (let i = p; i < v.length; i++) if (v[i] !== t[i]) { S.miss++; const k = v[i]; S.missKeys[k] = (S.missKeys[k]||0) + 1; }
+  it.prev = v;
+  if (v.replace(/\s+$/,'') === t) { S.correct += t.length; nextItem(); }
+  render();
+}
+$('#imeInput').addEventListener('compositionstart', () => { composing = true; if (S && !S.start) S.start = performance.now(); });
+$('#imeInput').addEventListener('compositionend', () => { composing = false; setTimeout(imeCheck, 0); });
+$('#imeInput').addEventListener('input', e => { if (e.isComposing || composing) { renderBody(); return; } imeCheck(); });
+$('#imeInput').addEventListener('keydown', e => {
+  if (e.key === 'Escape') { e.preventDefault(); newSession(); }
+  else if (e.key === 'Enter' && S && S.finished && !e.isComposing) { e.preventDefault(); newSession(); }
+});
+
+/* ---------- flow ---------- */
+function nextItem(){
+  S.idx++;
+  if (S.idx >= S.items.length) return finish();
+  loadItem();
+}
+function speed(){
+  if (!S.start) return 0;
+  const ms = (S.end || performance.now()) - S.start;
+  return ms > 500 ? S.correct / (ms / 60000) : 0;
+}
+function accuracy(){ const n = S.correct + S.miss; return n ? S.correct / n : null; }
+function modeKey(){ return mode === 'weak' ? 'weak' : mode + ':' + sub[mode]; }
+const MODE_LABEL = {'code:cs':'コード C#','code:py':'コード Python','code:js':'コード JS','code:sym':'記号ラッシュ','code:custom':'自作コード',
+  'roma:prompt':'ローマ字 プロンプト','roma:daily':'ローマ字 日常','roma:mix':'ローマ字 ミックス',
+  'ime:prompt':'IME プロンプト','ime:daily':'IME 日常','ime:custom':'IME 自作','weak':'苦手特訓'};
+function rankOf(spd, ime){
+  const th = ime ? [60,100,140,180] : [150,250,350,450];
+  const names = ['見習い','初段','二段','三段','師範'];
+  let i = 0; while (i < th.length && spd >= th[i]) i++;
+  return names[i];
+}
+function finish(){
+  S.end = performance.now(); S.finished = true;
+  if (S.start) {
+    DB.history.push({t:Date.now(), mode:modeKey(), spd:Math.round(speed()), acc:accuracy() ?? 1, sec:Math.round((S.end - S.start)/1000), miss:S.miss});
+    if (DB.history.length > 500) DB.history = DB.history.slice(-500);
+    saveDB();
+  }
+}
+
+/* ---------- rendering ---------- */
+function fmtTime(sec){ sec = Math.max(0, Math.floor(sec)); return Math.floor(sec/60) + ':' + String(sec % 60).padStart(2,'0'); }
+function renderHud(){
+  if (!S) return;
+  const n = S.items.length;
+  $('#hNum').textContent = Math.min(S.idx + 1, n) + '/' + n;
+  $('#hSpd').textContent = Math.round(speed());
+  $('#hUnit').textContent = mode === 'ime' ? '字/分' : '打/分';
+  const a = accuracy(); $('#hAcc').textContent = a == null ? '-' : (a * 100).toFixed(1) + '%';
+  $('#hTime').textContent = fmtTime(S.start ? ((S.end || performance.now()) - S.start) / 1000 : 0);
+  let frac = S.idx / n;
+  if (!S.finished) {
+    const it = cur();
+    if (it.type === 'code') frac += (it.pos / it.text.length) / n;
+    if (it.type === 'roma') frac += (it.ui / it.units.length) / n;
+  }
+  $('#prog').style.width = (S.finished ? 100 : frac * 100) + '%';
+}
+function renderBody(){
+  const body = $('#body');
+  const imeWrap = $('#imeWrap');
+  if (S.finished) { imeWrap.hidden = true; body.innerHTML = resultHTML(); return; }
+  const it = cur();
+  imeWrap.hidden = it.type !== 'ime';
+  const nxt = S.items[S.idx + 1];
+  const nextLine = nxt ? `<div class="next">次: ${esc(nxt.type === 'code' ? nxt.text.split('\n')[0] : nxt.text)}</div>` : '';
+  if (it.type === 'code') {
+    const t = it.text, p = it.pos, c = t[p];
+    const curHTML = c === '\n' ? '<span class="cur">↵</span>\n' : `<span class="cur">${esc(c)}</span>`;
+    body.innerHTML = `<pre class="code"><span class="done">${esc(t.slice(0,p))}</span>${curHTML}<span class="rest">${esc(t.slice(p+1))}</span></pre>${nextLine}`;
+    const el = body.querySelector('.cur'); if (el && el.scrollIntoView) el.scrollIntoView({block:'nearest', inline:'nearest'});
+  } else if (it.type === 'roma') {
+    let kDone = '', kRest = '', rDone = '', rCur = '', rRest = '';
+    it.units.forEach((u, i) => {
+      if (i < it.ui) { kDone += u.o; rDone += u.typed; }
+      else if (i === it.ui) {
+        kRest += u.o;
+        const cand = u.cands.find(r => r.startsWith(it.buf)) || u.cands[0];
+        rDone += it.buf; rCur = cand[it.buf.length] || ''; rRest += cand.slice(it.buf.length + 1);
+      } else if (rCur === '' && i === it.ui + 1) { kRest += u.o; rCur = u.cands[0][0]; rRest += u.cands[0].slice(1); }
+      else { kRest += u.o; rRest += u.cands[0]; }
+    });
+    body.innerHTML = `<p class="jp-text">${esc(it.text)}</p>
+      <p class="jp-kana"><span class="done">${esc(kDone)}</span>${esc(kRest)}</p>
+      ${opt.guide ? `<p class="jp-roma"><span class="done">${esc(rDone)}</span><span class="cur">${esc(rCur)}</span><span class="rest">${esc(rRest)}</span></p>` :
+        `<p class="jp-roma"><span class="done">${esc(rDone)}</span><span class="cur">&nbsp;</span></p>`}
+      ${nextLine}`;
+  } else {
+    const t = nfkc(it.text), committed = composing ? (it.prev || '') : nfkc($('#imeInput').value);
+    let h = '';
+    for (let i = 0; i < t.length; i++) {
+      const cls = i < committed.length ? (committed[i] === t[i] ? 'ok' : 'ng') : 'rest';
+      h += `<span class="${cls}">${esc(it.text[i] || t[i])}</span>`;
+    }
+    body.innerHTML = `<p class="ime-target">${h}</p>${nextLine}`;
+  }
+}
+function resultHTML(){
+  const ime = mode === 'ime';
+  const spd = Math.round(speed()), a = accuracy();
+  const top = Object.entries(S.missKeys).sort((x,y) => y[1] - x[1]).slice(0, 6);
+  return `<div class="result">
+    <div class="rank">段位 ${esc(rankOf(spd, ime))}</div>
+    <div class="r-main">
+      <div><span class="lbl">速度</span><span class="big">${spd}</span><span class="unit">${ime ? '字/分' : '打/分'}</span></div>
+      <div><span class="lbl">正確率</span><span class="mid">${a == null ? '-' : (a*100).toFixed(1) + '%'}</span></div>
+      <div><span class="lbl">ミス</span><span class="mid">${S.miss}</span></div>
+      <div><span class="lbl">時間</span><span class="mid">${fmtTime((S.end - S.start)/1000)}</span></div>
+    </div>
+    ${top.length ? `<div><div class="lbl" style="margin-bottom:6px">この回ミスが多かった${ime ? '文字' : 'キー'}</div><div class="chips">${top.map(([k,n]) => `<span class="chip"><b>${esc(k === ' ' ? '␣' : k)}</b>${n}回</span>`).join('')}</div></div>` : '<div class="lbl">ノーミス！</div>'}
+    <div class="btns">
+      <button class="btn primary" data-act="again">もう一度 <kbd>Enter</kbd></button>
+      ${mode !== 'weak' && !ime ? '<button class="btn" data-act="weak">苦手特訓へ</button>' : ''}
+      <button class="btn" data-act="rec">記録を見る</button>
+    </div></div>`;
+}
+const HINTS = {
+  code: '<kbd>Enter</kbd> 改行 ・ <kbd>Tab</kbd> インデント ・ <kbd>Esc</kbd> やり直し ・ 半角英数で入力。最初のキーでタイマーが始まります。',
+  roma: 'shi/si、tsu/tu、ん=nn/n など好きな打ち方でOK ・ <kbd>Esc</kbd> やり直し ・ 半角英数で入力。',
+  ime: '普段どおりIMEで変換して入力。全部一致すると次の問題へ進みます ・ <kbd>Esc</kbd> やり直し',
+  weak: '記録から苦手なキーを多く含む問題を作ります ・ <kbd>Esc</kbd> で作り直し'
+};
+function render(){
+  renderHud(); renderBody();
+  $('#hint').innerHTML = HINTS[mode] || '';
+}
+
+/* ---------- controls ---------- */
+function setMode(m){
+  if (m === 'rec') { view = 'rec'; }
+  else { view = 'play'; mode = m; }
+  document.querySelectorAll('#tabs button').forEach(b => b.setAttribute('aria-selected', String(b.dataset.mode === (view === 'rec' ? 'rec' : mode))));
+  $('#play').hidden = view !== 'play';
+  $('#rec').hidden = view !== 'rec';
+  ['code','roma','ime','weak'].forEach(k => { $('#ctl-' + k).hidden = k !== mode; });
+  updateCustomBox();
+  if (view === 'rec') { renderRecords(); return; }
+  if (mode === 'weak') {
+    const wk = weakKeys(6);
+    $('#weakInfo').innerHTML = wk.length
+      ? '重点キー: ' + wk.map(w => `<span class="chip"><b>${esc(w.k)}</b>${Math.round(w.rate*100)}%</span>`).join(' ')
+      : 'まだデータが少ないので全体からランダムに出題します。他のモードで何回か練習すると苦手キーが分かります。';
+  }
+  $('#warn').hidden = true;
+  newSession();
+  focusStage();
+}
+function focusStage(){
+  if (view !== 'play') return;
+  if (mode === 'ime') $('#imeInput').focus({preventScroll:true}); else $('#stage').focus({preventScroll:true});
+}
+function updateCustomBox(){
+  const show = view === 'play' && ((mode === 'code' && sub.code === 'custom') || (mode === 'ime' && sub.ime === 'custom'));
+  $('#customBox').hidden = !show;
+  if (show) {
+    const ta = $('#customText');
+    ta.value = mode === 'code' ? DB.customCode : DB.customIme;
+    ta.placeholder = mode === 'code' ? '練習したいコードを貼り付け(自作スクリプトなど)' : '練習したい文章を1行に1つずつ(よく使うプロンプトなど)';
+  }
+}
+document.querySelectorAll('#tabs button').forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
+$('#selCode').addEventListener('change', e => { sub.code = e.target.value; updateCustomBox(); newSession(); focusStage(); });
+$('#selRoma').addEventListener('change', e => { sub.roma = e.target.value; newSession(); focusStage(); });
+$('#selIme').addEventListener('change', e => { sub.ime = e.target.value; updateCustomBox(); newSession(); focusStage(); });
+$('#optIndent').addEventListener('change', e => { opt.indent = e.target.checked; newSession(); focusStage(); });
+$('#optGuide').addEventListener('change', e => { opt.guide = e.target.checked; render(); focusStage(); });
+$('#customApply').addEventListener('click', () => {
+  if (mode === 'code') DB.customCode = $('#customText').value; else DB.customIme = $('#customText').value;
+  saveDB(); newSession(); focusStage();
+});
+$('#stage').addEventListener('click', e => {
+  const act = e.target.closest('[data-act]');
+  if (act) {
+    const a = act.dataset.act;
+    if (a === 'again') { newSession(); focusStage(); }
+    else if (a === 'weak') setMode('weak');
+    else if (a === 'rec') setMode('rec');
+    return;
+  }
+  focusStage();
+});
+
+document.addEventListener('keydown', e => {
+  if (view !== 'play' || !S) return;
+  const tg = e.target;
+  if (tg && (tg.tagName === 'TEXTAREA' || tg.tagName === 'SELECT' || (tg.tagName === 'INPUT' && tg.id !== 'imeInput'))) return;
+  if (tg && tg.id === 'imeInput') return;
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  if (e.key === 'Escape') { e.preventDefault(); newSession(); focusStage(); return; }
+  if (S.finished) { if (e.key === 'Enter') { e.preventDefault(); newSession(); focusStage(); } return; }
+  if (mode === 'ime') { $('#imeInput').focus(); return; }
+  if (e.isComposing || e.key === 'Process' || e.keyCode === 229) { $('#warn').hidden = false; e.preventDefault(); return; }
+  let k = e.key;
+  if (k === 'Enter') k = '\n'; else if (k === 'Tab') k = '\t'; else if (k.length !== 1) return;
+  e.preventDefault();
+  $('#warn').hidden = true;
+  if (!S.start) { S.start = performance.now(); S.lastT = S.start; }
+  if (cur().type === 'roma') romaKey(k); else codeKey(k);
+  render();
+});
+setInterval(() => { if (view === 'play' && S && S.start && !S.finished) renderHud(); }, 250);
+window.addEventListener('beforeunload', saveDB);
+setInterval(saveDB, 5000);
+
+/* ---------- records ---------- */
+const LAYOUTS = {
+  jis: [
+    [['1','!'],['2','"'],['3','#'],['4','$'],['5','%'],['6','&'],['7',"'"],['8','('],['9',')'],['0'],['-','='],['^','~'],['\\','|','¥']],
+    [['q'],['w'],['e'],['r'],['t'],['y'],['u'],['i'],['o'],['p'],['@','`'],['[','{']],
+    [['a'],['s'],['d'],['f'],['g'],['h'],['j'],['k'],['l'],[';','+'],[':','*'],[']','}']],
+    [['z'],['x'],['c'],['v'],['b'],['n'],['m'],[',','<'],['.','>'],['/','?'],['_','','ろ']]
+  ],
+  us: [
+    [['1','!'],['2','@'],['3','#'],['4','$'],['5','%'],['6','^'],['7','&'],['8','*'],['9','('],['0',')'],['-','_'],['=','+']],
+    [['q'],['w'],['e'],['r'],['t'],['y'],['u'],['i'],['o'],['p'],['[','{'],[']','}'],['\\','|']],
+    [['a'],['s'],['d'],['f'],['g'],['h'],['j'],['k'],['l'],[';',':'],["'",'"']],
+    [['z'],['x'],['c'],['v'],['b'],['n'],['m'],[',','<'],['.','>'],['/','?']]
+  ]
+};
+const OFFS = [0, 20, 30, 44];
+function renderKeyboard(){
+  const L = LAYOUTS[DB.layout] || LAYOUTS.jis;
+  $('#selLayout').value = DB.layout;
+  let h = '';
+  L.forEach((row, ri) => {
+    h += `<div class="row" style="padding-left:${OFFS[ri]}px">`;
+    row.forEach(cap => {
+      const chars = cap.slice(0, 2).filter(Boolean);
+      let n = 0, m = 0;
+      chars.forEach(c => { const v = DB.keys[c]; if (v) { n += v.n; m += v.m; } });
+      const rate = n ? m / n : 0;
+      const few = n < 5;
+      const p = few ? 0 : Math.round(Math.min(1, rate / 0.2) * 85);
+      const style = few ? '' : `background:color-mix(in oklab, var(--heat) ${p}%, var(--panel));${p > 50 ? 'color:var(--on-accent)' : ''}`;
+      const label = cap[2] || cap[0];
+      const info = few ? `${label}: データ不足 (${n}打)` : `${label}${cap[1] ? ' ' + cap[1] : ''}: ミス率 ${(rate*100).toFixed(1)}% ・ ${n}打`;
+      h += `<div class="key${few ? ' few' : ''}" style="${style}" data-info="${esc(info)}" title="${esc(info)}"><span class="b">${esc(label)}</span>${cap[1] ? `<span class="s">${esc(cap[1])}</span>` : ''}</div>`;
+    });
+    h += '</div>';
+  });
+  const sp = DB.keys[' '];
+  const spInfo = sp ? `スペース: ミス率 ${(sp.m/sp.n*100).toFixed(1)}% ・ ${sp.n}打` : 'スペース: データ不足';
+  h += `<div class="row" style="padding-left:150px"><div class="key${sp && sp.n >= 5 ? '' : ' few'}" style="width:230px" data-info="${esc(spInfo)}" title="${esc(spInfo)}"><span class="b">space</span></div></div>`;
+  $('#kb').innerHTML = h;
+}
+$('#kb').addEventListener('mouseover', e => { const k = e.target.closest('.key'); if (k) $('#kbInfo').textContent = k.dataset.info; });
+$('#selLayout').addEventListener('change', e => { DB.layout = e.target.value; saveDB(); renderKeyboard(); });
+
+function renderWeakList(){
+  const wk = weakKeys(8);
+  if (!wk.length) { $('#weakList').innerHTML = '<div class="empty">コード・ローマ字モードで練習すると、ここに苦手キーが並びます。</div>'; return; }
+  const maxR = Math.max(...wk.map(w => w.rate), 0.05);
+  $('#weakList').innerHTML = wk.map(w => `<div class="wk"><span class="k">${esc(w.k === '⏎' ? '↵' : w.k)}</span>
+    <span class="m"><i style="width:${Math.round(w.rate / maxR * 100)}%"></i></span>
+    <span class="v">${(w.rate*100).toFixed(1)}% ・ ${Math.round(w.ms)}ms</span></div>`).join('');
+}
+
+function renderChart(){
+  const box = $('#chart');
+  const g = $('#selHist').value;
+  const data = DB.history.filter(h => h.mode === g || h.mode.startsWith(g + ':')).slice(-30);
+  const unit = g === 'ime' ? '字/分' : '打/分';
+  if (!data.length) { box.innerHTML = `<div class="empty">このモードの記録はまだありません。1回練習するとグラフが表示されます。</div>`; return; }
+  const W = Math.max(300, box.clientWidth || 560), H = 220, ml = 40, mr = 18, mt = 14, mb = 28;
+  const max = Math.max(...data.map(d => d.spd), 10);
+  const raw = max * 1.15 / 4, mag = Math.pow(10, Math.floor(Math.log10(raw))); const stepC = [1,2,2.5,5,10].find(m => m * mag >= raw) * mag;
+  const yMax = Math.ceil(max * 1.15 / stepC) * stepC;
+  const x = i => data.length === 1 ? ml + (W - ml - mr) / 2 : ml + i * (W - ml - mr) / (data.length - 1);
+  const y = v => mt + (H - mt - mb) * (1 - v / yMax);
+  let s = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="速度の推移">`;
+  for (let v = 0; v <= yMax; v += stepC) {
+    s += `<line x1="${ml}" x2="${W - mr}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)" stroke-width="1" ${v ? 'stroke-dasharray="2 4"' : ''}/>`;
+    s += `<text x="${ml - 8}" y="${y(v) + 4}" text-anchor="end">${v}</text>`;
+  }
+  const pts = data.map((d, i) => [x(i), y(d.spd)]);
+  if (data.length > 1) {
+    const line = pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
+    s += `<path d="${line} L${pts[pts.length-1][0].toFixed(1)} ${y(0)} L${pts[0][0].toFixed(1)} ${y(0)} Z" fill="var(--accent)" fill-opacity="0.12"/>`;
+    s += `<path d="${line}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
+  }
+  const last = pts[pts.length - 1];
+  s += `<circle cx="${last[0]}" cy="${last[1]}" r="5" fill="var(--accent)" stroke="var(--panel)" stroke-width="2"/>`;
+  s += `<text x="${Math.min(last[0], W - mr - 4)}" y="${last[1] - 10}" text-anchor="end" style="fill:var(--ink)">${data[data.length-1].spd} ${unit}</text>`;
+  const dlab = t => { const d = new Date(t); return (d.getMonth()+1) + '/' + d.getDate(); };
+  s += `<text x="${x(0)}" y="${H - 8}" text-anchor="${data.length === 1 ? 'middle' : 'start'}">${dlab(data[0].t)}</text>`;
+  if (data.length > 1) s += `<text x="${x(data.length-1)}" y="${H - 8}" text-anchor="end">${dlab(data[data.length-1].t)}</text>`;
+  s += `<line id="cx" x1="0" x2="0" y1="${mt}" y2="${H - mb}" stroke="var(--muted)" stroke-width="1" visibility="hidden"/>`;
+  s += `<circle id="cdot" r="5" fill="var(--accent)" stroke="var(--panel)" stroke-width="2" visibility="hidden"/>`;
+  s += `<rect x="${ml}" y="0" width="${W - ml - mr}" height="${H}" fill="transparent" id="hov"/></svg><div class="tip" id="tip" hidden></div>`;
+  box.innerHTML = s;
+  const hov = box.querySelector('#hov'), tip = box.querySelector('#tip'), cx = box.querySelector('#cx'), cd = box.querySelector('#cdot');
+  const svg = box.querySelector('svg');
+  hov.addEventListener('mousemove', e => {
+    const r = svg.getBoundingClientRect(), sx = (e.clientX - r.left) * W / r.width;
+    let i = data.length === 1 ? 0 : Math.round((sx - ml) / ((W - ml - mr) / (data.length - 1)));
+    i = Math.max(0, Math.min(data.length - 1, i));
+    const d = data[i], px = x(i), py = y(d.spd);
+    cx.setAttribute('x1', px); cx.setAttribute('x2', px); cx.setAttribute('visibility', 'visible');
+    cd.setAttribute('cx', px); cd.setAttribute('cy', py); cd.setAttribute('visibility', 'visible');
+    const dt = new Date(d.t);
+    tip.innerHTML = `${dt.getMonth()+1}/${dt.getDate()} ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')} ・ ${esc(MODE_LABEL[d.mode] || d.mode)}<br><b>${d.spd}</b> ${unit} ・ 正確率 ${(d.acc*100).toFixed(1)}%`;
+    tip.hidden = false;
+    const scale = r.width / W;
+    let left = px * scale + 12; if (left + tip.offsetWidth > r.width) left = px * scale - tip.offsetWidth - 12;
+    tip.style.left = Math.max(0, left) + 'px'; tip.style.top = Math.max(0, py * scale - 30) + 'px';
+  });
+  hov.addEventListener('mouseleave', () => { tip.hidden = true; cx.setAttribute('visibility','hidden'); cd.setAttribute('visibility','hidden'); });
+}
+$('#selHist').addEventListener('change', renderChart);
+window.addEventListener('resize', () => { if (view === 'rec') renderChart(); });
+
+function renderTable(){
+  const rows = DB.history.slice(-12).reverse();
+  if (!rows.length) { $('#histTbl').innerHTML = '<tr><td class="empty">まだ記録がありません。</td></tr>'; return; }
+  $('#histTbl').innerHTML = '<tr><th>日時</th><th>モード</th><th>速度</th><th>正確率</th><th>時間</th><th>ミス</th></tr>' +
+    rows.map(r => { const d = new Date(r.t); const ime = r.mode.startsWith('ime');
+      return `<tr><td>${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}</td><td>${esc(MODE_LABEL[r.mode] || r.mode)}</td><td>${r.spd} ${ime ? '字/分' : '打/分'}</td><td>${(r.acc*100).toFixed(1)}%</td><td>${fmtTime(r.sec)}</td><td>${r.miss}</td></tr>`; }).join('');
+}
+function renderRecords(){ renderChart(); renderWeakList(); renderKeyboard(); renderTable(); }
+
+let resetArmed = false;
+$('#resetBtn').addEventListener('click', e => {
+  if (!resetArmed) { resetArmed = true; e.target.textContent = 'もう一度押すと全記録を消去'; setTimeout(() => { resetArmed = false; e.target.textContent = '記録をリセット'; }, 3000); return; }
+  DB.keys = {}; DB.history = []; saveDB(); resetArmed = false; e.target.textContent = '記録をリセット'; renderRecords();
+});
+
+setMode('code');
+})();
+</script>
+
+</body>
+</html>
