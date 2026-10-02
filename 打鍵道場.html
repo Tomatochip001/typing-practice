@@ -198,6 +198,15 @@ th{color:var(--muted);font-weight:400;font-size:12px}
       <h2>最近の記録</h2>
       <div class="tbl"><table id="histTbl"></table></div>
     </div>
+    <div class="sec">
+      <div class="sec-h"><h2>記録の持ち運び</h2><span class="hint">ローカル版とWeb公開版は記録が別々です。ファイル経由で移せます。</span></div>
+      <div class="btns">
+        <button class="btn" id="expBtn">記録を書き出す(.json)</button>
+        <button class="btn" id="impBtn">記録を読み込む</button>
+        <input type="file" id="impFile" accept=".json,application/json" hidden>
+      </div>
+      <div class="hint" id="ioMsg" role="status"></div>
+    </div>
     <div class="btns"><button class="btn danger" id="resetBtn">記録をリセット</button></div>
   </section>
 </div>
@@ -912,6 +921,58 @@ function renderTable(){
       return `<tr><td>${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}</td><td>${esc(MODE_LABEL[r.mode] || r.mode)}</td><td>${r.spd} ${ime ? '字/分' : '打/分'}</td><td>${(r.acc*100).toFixed(1)}%</td><td>${fmtTime(r.sec)}</td><td>${r.miss}</td></tr>`; }).join('');
 }
 function renderRecords(){ renderChart(); renderWeakList(); renderKeyboard(); renderTable(); }
+
+/* ---------- export / import ---------- */
+function ioMsg(t, bad){ const m = $('#ioMsg'); m.textContent = t; m.style.color = bad ? 'var(--bad)' : 'var(--ok)'; }
+function newId(){ return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+$('#expBtn').addEventListener('click', () => {
+  const id = newId();
+  DB.seen = (DB.seen || []).concat(id).slice(-50); saveDB();
+  const out = {app:'dakendojo', version:1, id, exported:new Date().toISOString(), data:DB};
+  const a = document.createElement('a');
+  const d = new Date(), ymd = d.getFullYear() + String(d.getMonth()+1).padStart(2,'0') + String(d.getDate()).padStart(2,'0');
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(out)], {type:'application/json'}));
+  a.download = `打鍵道場_記録_${ymd}.json`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  ioMsg(`書き出しました(履歴 ${DB.history.length} 件)。`);
+});
+$('#impBtn').addEventListener('click', () => $('#impFile').click());
+$('#impFile').addEventListener('change', e => {
+  const f = e.target.files[0]; e.target.value = '';
+  if (!f) return;
+  const rd = new FileReader();
+  rd.onerror = () => ioMsg('ファイルを読めませんでした。', true);
+  rd.onload = () => {
+    let o;
+    try { o = JSON.parse(rd.result); } catch(_) { return ioMsg('JSONとして読めませんでした。打鍵道場から書き出したファイルを選んでください。', true); }
+    if (!o || o.app !== 'dakendojo' || !o.data || typeof o.data !== 'object') return ioMsg('打鍵道場の記録ファイルではありません。', true);
+    if (o.id && (DB.seen || []).includes(o.id)) return ioMsg('このファイルは取り込み済み(または自分で書き出したもの)です。', true);
+    const d = o.data, hs = Array.isArray(d.history) ? d.history : [], ks = d.keys && typeof d.keys === 'object' ? d.keys : {};
+    if (!confirm(`記録を今のデータに統合します。\n履歴 ${hs.length} 件 / キー ${Object.keys(ks).length} 種\nよろしいですか?`)) return;
+    const have = new Set(DB.history.map(h => h.t + '|' + h.mode));
+    let added = 0;
+    hs.forEach(h => {
+      if (!h || typeof h.t !== 'number' || typeof h.mode !== 'string' || typeof h.spd !== 'number') return;
+      if (have.has(h.t + '|' + h.mode)) return;
+      have.add(h.t + '|' + h.mode);
+      DB.history.push({t:h.t, mode:h.mode, spd:h.spd, acc:+h.acc || 0, sec:+h.sec || 0, miss:+h.miss || 0}); added++;
+    });
+    DB.history.sort((a, b) => a.t - b.t);
+    if (DB.history.length > 500) DB.history = DB.history.slice(-500);
+    Object.entries(ks).forEach(([k, v]) => {
+      if (!v || typeof v.n !== 'number') return;
+      const m = DB.keys[k] || (DB.keys[k] = {n:0, m:0, t:0, c:0});
+      m.n += v.n; m.m += +v.m || 0; m.t += +v.t || 0; m.c += +v.c || 0;
+    });
+    if (!DB.customCode && typeof d.customCode === 'string') DB.customCode = d.customCode;
+    if (!DB.customIme && typeof d.customIme === 'string') DB.customIme = d.customIme;
+    if (o.id) DB.seen = (DB.seen || []).concat(o.id).slice(-50);
+    saveDB(); renderRecords();
+    ioMsg(`取り込みました(履歴 +${added} 件、重複 ${hs.length - added} 件はスキップ)。`);
+  };
+  rd.readAsText(f);
+});
 
 let resetArmed = false;
 $('#resetBtn').addEventListener('click', e => {
