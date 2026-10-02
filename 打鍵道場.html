@@ -62,6 +62,7 @@ select{font:inherit;font-size:14px;color:var(--ink);background:var(--panel);bord
 #body{min-width:0}
 .code{font-family:var(--f-mono);font-size:17px;line-height:1.8;white-space:pre;overflow-x:auto;margin:0;padding:6px 2px}
 .done{color:var(--ok)}
+.done .ng{color:var(--bad);text-decoration:underline wavy;text-underline-offset:4px}
 .rest{color:var(--muted)}
 .cur{background:var(--cur-bg);color:var(--cur-fg);border-radius:3px;box-shadow:0 2px 0 var(--accent)}
 .flash .cur{background:var(--bad);color:var(--on-accent);box-shadow:none}
@@ -156,6 +157,9 @@ th{color:var(--muted);font-weight:400;font-size:12px}
         <option value="prompt">AIプロンプト</option><option value="daily">日常・連絡</option><option value="custom">自作(1行=1問)</option></select></label>
     </div>
     <div class="controls" id="ctl-weak"><span id="weakInfo"></span></div>
+    <div class="controls" id="ctl-common">
+      <label class="chk" id="lblSkip"><input type="checkbox" id="optSkip"> ミスしても先に進む</label>
+    </div>
     <div id="customBox" hidden>
       <textarea id="customText" spellcheck="false" placeholder=""></textarea>
       <div class="btns"><button class="btn primary" id="customApply">このテキストで練習</button></div>
@@ -372,6 +376,7 @@ const STORE = 'dakendojo-v1';
 function loadDB(){ try { return JSON.parse(localStorage.getItem(STORE)); } catch(e){ return null; } }
 function saveDB(){ try { localStorage.setItem(STORE, JSON.stringify(DB)); } catch(e){} }
 let DB = Object.assign({keys:{}, history:[], customCode:'', customIme:'', layout:'jis'}, loadDB() || {});
+DB.settings = Object.assign({skip:false}, DB.settings);
 
 /* ---------- data ---------- */
 const blocks = {};
@@ -518,7 +523,7 @@ function newSession(){
 }
 function loadItem(){
   const it = cur();
-  if (it.type === 'code') it.pos = 0;
+  if (it.type === 'code') { it.pos = 0; it.bad = null; }
   if (it.type === 'roma') { it.units = tokenize(it.reading); it.ui = 0; it.buf = ''; }
   if (it.type === 'ime') { it.prev = ''; const inp = $('#imeInput'); inp.value = ''; }
 }
@@ -548,16 +553,17 @@ function miss(ch){
 }
 
 /* ---------- code typing ---------- */
-const opt = { indent:true, guide:true };
+const opt = { indent:true, guide:true, get skip(){ return DB.settings.skip; } };
 function codeKey(k){
   const it = cur(), t = it.text, exp = t[it.pos];
+  const skipOn = () => { (it.bad = it.bad || new Set()).add(it.pos); it.pos++; if (exp === '\n' && opt.indent) while (t[it.pos] === ' ') it.pos++; };
   if (k === '\t') {
     if (exp === ' ') { let c = 0; while (t[it.pos] === ' ' && c < 4) { it.pos++; c++; } hit(' '); }
-    else miss(exp);
+    else { miss(exp); if (opt.skip) skipOn(); }
   } else if (k === exp) {
     it.pos++; hit(exp);
     if (exp === '\n' && opt.indent) while (t[it.pos] === ' ') it.pos++;
-  } else miss(exp);
+  } else { miss(exp); if (opt.skip) skipOn(); }
   if (it.pos >= t.length) nextItem();
 }
 
@@ -584,7 +590,14 @@ function romaKey(k){
   if (k === '\n' || k === '\t') return;
   const kk = k.length === 1 && /[A-Z]/.test(k) ? k.toLowerCase() : k;
   const exp = expectChar(it);
-  if (step(it, kk)) hit(kk); else miss(exp);
+  if (step(it, kk)) hit(kk);
+  else {
+    miss(exp);
+    if (opt.skip) {
+      const u = it.units[it.ui];
+      u.typed = it.buf; u.bad = true; it.ui++; it.buf = '';
+    }
+  }
   if (it.ui >= it.units.length) nextItem();
 }
 
@@ -660,6 +673,12 @@ function renderHud(){
   }
   $('#prog').style.width = (S.finished ? 100 : frac * 100) + '%';
 }
+function doneHTML(it){
+  if (!it.bad || !it.bad.size) return esc(it.text.slice(0, it.pos));
+  let h = '';
+  for (let i = 0; i < it.pos; i++) { const c = it.text[i]; h += it.bad.has(i) ? `<span class="ng">${esc(c === '\n' ? '↵\n' : c === ' ' ? '␣' : c)}</span>` : esc(c); }
+  return h;
+}
 function renderBody(){
   const body = $('#body');
   const imeWrap = $('#imeWrap');
@@ -671,23 +690,26 @@ function renderBody(){
   if (it.type === 'code') {
     const t = it.text, p = it.pos, c = t[p];
     const curHTML = c === '\n' ? '<span class="cur">↵</span>\n' : `<span class="cur">${esc(c)}</span>`;
-    body.innerHTML = `<pre class="code"><span class="done">${esc(t.slice(0,p))}</span>${curHTML}<span class="rest">${esc(t.slice(p+1))}</span></pre>${nextLine}`;
+    body.innerHTML = `<pre class="code"><span class="done">${doneHTML(it)}</span>${curHTML}<span class="rest">${esc(t.slice(p+1))}</span></pre>${nextLine}`;
     const el = body.querySelector('.cur'); if (el && el.scrollIntoView) el.scrollIntoView({block:'nearest', inline:'nearest'});
   } else if (it.type === 'roma') {
     let kDone = '', kRest = '', rDone = '', rCur = '', rRest = '';
     it.units.forEach((u, i) => {
-      if (i < it.ui) { kDone += u.o; rDone += u.typed; }
+      if (i < it.ui) {
+        if (u.bad) { kDone += `<span class="ng">${esc(u.o)}</span>`; rDone += `<span class="ng">${esc(u.typed || '✕')}</span>`; }
+        else { kDone += esc(u.o); rDone += esc(u.typed); }
+      }
       else if (i === it.ui) {
         kRest += u.o;
         const cand = u.cands.find(r => r.startsWith(it.buf)) || u.cands[0];
-        rDone += it.buf; rCur = cand[it.buf.length] || ''; rRest += cand.slice(it.buf.length + 1);
+        rDone += esc(it.buf); rCur = cand[it.buf.length] || ''; rRest += cand.slice(it.buf.length + 1);
       } else if (rCur === '' && i === it.ui + 1) { kRest += u.o; rCur = u.cands[0][0]; rRest += u.cands[0].slice(1); }
       else { kRest += u.o; rRest += u.cands[0]; }
     });
     body.innerHTML = `<p class="jp-text">${esc(it.text)}</p>
-      <p class="jp-kana"><span class="done">${esc(kDone)}</span>${esc(kRest)}</p>
-      ${opt.guide ? `<p class="jp-roma"><span class="done">${esc(rDone)}</span><span class="cur">${esc(rCur)}</span><span class="rest">${esc(rRest)}</span></p>` :
-        `<p class="jp-roma"><span class="done">${esc(rDone)}</span><span class="cur">&nbsp;</span></p>`}
+      <p class="jp-kana"><span class="done">${kDone}</span>${esc(kRest)}</p>
+      ${opt.guide ? `<p class="jp-roma"><span class="done">${rDone}</span><span class="cur">${esc(rCur)}</span><span class="rest">${esc(rRest)}</span></p>` :
+        `<p class="jp-roma"><span class="done">${rDone}</span><span class="cur">&nbsp;</span></p>`}
       ${nextLine}`;
   } else {
     const t = nfkc(it.text), committed = composing ? (it.prev || '') : nfkc($('#imeInput').value);
@@ -737,6 +759,8 @@ function setMode(m){
   $('#play').hidden = view !== 'play';
   $('#rec').hidden = view !== 'rec';
   ['code','roma','ime','weak'].forEach(k => { $('#ctl-' + k).hidden = k !== mode; });
+  $('#lblSkip').hidden = !(mode === 'code' || mode === 'roma' || mode === 'weak');
+  $('#optSkip').checked = DB.settings.skip;
   updateCustomBox();
   if (view === 'rec') { renderRecords(); return; }
   if (mode === 'weak') {
@@ -767,6 +791,7 @@ $('#selCode').addEventListener('change', e => { sub.code = e.target.value; updat
 $('#selRoma').addEventListener('change', e => { sub.roma = e.target.value; newSession(); focusStage(); });
 $('#selIme').addEventListener('change', e => { sub.ime = e.target.value; updateCustomBox(); newSession(); focusStage(); });
 $('#optIndent').addEventListener('change', e => { opt.indent = e.target.checked; newSession(); focusStage(); });
+$('#optSkip').addEventListener('change', e => { DB.settings.skip = e.target.checked; saveDB(); newSession(); focusStage(); });
 $('#optGuide').addEventListener('change', e => { opt.guide = e.target.checked; render(); focusStage(); });
 $('#customApply').addEventListener('click', () => {
   if (mode === 'code') DB.customCode = $('#customText').value; else DB.customIme = $('#customText').value;
