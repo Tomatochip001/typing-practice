@@ -30,8 +30,10 @@ async function burn(pw) { await verifyPassword(pw, DUMMY.salt, DUMMY.hash); }
 const b64 = buf => Buffer.from(buf).toString('base64url');
 const sign = payload => b64(crypto.createHmac('sha256', secret()).update(payload).digest());
 
-function makeToken(uid) {
-  const payload = `${uid}.${Date.now() + SESSION_DAYS * 86400000}`;
+// トークン: uid.epoch.期限.署名。epoch は users.session_epoch。パスワードを変えると epoch が上がり、古いログインは全部無効になる。
+// (epoch の無い古い形式 uid.期限.署名 は epoch 0 として読む)
+function makeToken(uid, epoch) {
+  const payload = `${uid}.${epoch || 0}.${Date.now() + SESSION_DAYS * 86400000}`;
   return `${payload}.${sign(payload)}`;
 }
 function readToken(token) {
@@ -41,9 +43,10 @@ function readToken(token) {
   const payload = token.slice(0, i), sig = token.slice(i + 1);
   const a = Buffer.from(sig), b = Buffer.from(sign(payload));
   if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
-  const [uid, exp] = payload.split('.');
-  if (!/^\d+$/.test(uid) || !(Number(exp) > Date.now())) return null;
-  return Number(uid);
+  const parts = payload.split('.');
+  const [uid, epoch, exp] = parts.length === 3 ? parts : [parts[0], '0', parts[1]];
+  if (!/^\d+$/.test(uid) || !/^\d+$/.test(epoch) || !(Number(exp) > Date.now())) return null;
+  return { uid: Number(uid), epoch: Number(epoch) };
 }
 
 function parseCookies(header) {
@@ -55,9 +58,9 @@ function parseCookies(header) {
   return out;
 }
 const cookieAttrs = 'Path=/; HttpOnly; SameSite=Lax' + (process.env.NODE_ENV === 'test' ? '' : '; Secure');
-const sessionCookie = uid => `${COOKIE}=${makeToken(uid)}; ${cookieAttrs}; Max-Age=${SESSION_DAYS * 86400}`;
+const sessionCookie = (uid, epoch) => `${COOKIE}=${makeToken(uid, epoch)}; ${cookieAttrs}; Max-Age=${SESSION_DAYS * 86400}`;
 const clearCookie = () => `${COOKIE}=; ${cookieAttrs}; Max-Age=0`;
-const userIdOf = req => readToken(parseCookies(req.headers.cookie)[COOKIE]);
+const readSession = req => readToken(parseCookies(req.headers.cookie)[COOKIE]); // { uid, epoch } か null
 
 /* ---- 入力チェック ---- */
 const WEAK = new Set(['password', 'password1', '12345678', '123456789', 'qwertyui', 'qwerty123', 'abcd1234', 'iloveyou', '11111111', 'asdfghjk']);
@@ -91,7 +94,27 @@ function checkPassword(pw, username) {
   return null;
 }
 
+/* ---- 回復コード / 仮パスワード ---- */
+// 回復コード: 20文字(100ビット)。I・O・0・1 は読み間違えやすいので使わない。画面には 5文字ずつ区切って出す
+const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+function randomChars(alphabet, n) {
+  let out = '';
+  while (out.length < n) { const b = crypto.randomBytes(1)[0]; if (b < 256 - (256 % alphabet.length)) out += alphabet[b % alphabet.length]; }
+  return out;
+}
+const newRecoveryCode = () => randomChars(CODE_CHARS, 20).match(/.{5}/g).join('-');
+// 入力のゆれ(小文字・全角・区切りの有無・空白)をそろえる
+const normRecoveryCode = c => typeof c === 'string' ? c.normalize('NFKC').toUpperCase().replace(/[^A-Z0-9]/g, '') : '';
+const validRecoveryCode = c => new RegExp(`^[${CODE_CHARS}]{20}$`).test(c);
+// 運営が発行する仮パスワード(検査に通る形: 英字と数字を必ず含む)
+function newTempPassword() {
+  for (;;) {
+    const p = randomChars('ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789', 14);
+    if (/[A-Za-z]/.test(p) && /[0-9]/.test(p)) return p;
+  }
+}
+
 // 設定漏れ(AUTH_SECRET)は、DBに書き込む前に分かるようにする
 const ensureConfigured = () => { secret(); };
 
-module.exports = { ensureConfigured, hashPassword, verifyPassword, burn, sessionCookie, clearCookie, userIdOf, normUsername, checkUsername, checkPassword };
+module.exports = { ensureConfigured, hashPassword, verifyPassword, burn, sessionCookie, clearCookie, readSession, normUsername, checkUsername, checkPassword, newRecoveryCode, normRecoveryCode, validRecoveryCode, newTempPassword };

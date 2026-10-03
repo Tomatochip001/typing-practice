@@ -6,9 +6,10 @@ const { api, send } = require('./_lib/http');
 const A = require('./_lib/auth');
 const C = require('./_lib/config');
 const R = require('./_lib/ratelimit');
+const { currentUser, quotaInfo } = require('./_lib/session');
 
 const MAX_RUNS_IN = 5000, PAGE = 20000;
-const MAX_RUNS_TOTAL = 20000, MAX_KEYS = 200, MAX_PREFS_BYTES = 64 * 1024, MAX_TEXT_BYTES = 28 * 1024;
+const MAX_KEYS = 200, MAX_PREFS_BYTES = 64 * 1024, MAX_TEXT_BYTES = 28 * 1024;
 const MIN_T = Date.UTC(2024, 0, 1), DAY = 86400000;
 const num = (v, min, max) => typeof v === 'number' && Number.isFinite(v) && v >= min && v <= max;
 const int = (v, min, max) => num(v, min, max) ? Math.round(v) : null;
@@ -56,11 +57,13 @@ function cleanPrefs(d) {
 }
 
 module.exports = api('POST', async (req, res, body) => {
-  const uid = A.userIdOf(req);
-  if (!uid) return send(res, 401, { error: 'unauthorized' });
+  if (!A.readSession(req)) return send(res, 401, { error: 'unauthorized' });
   const sql = await db();
-  const exists = await sql`SELECT 1 FROM users WHERE id = ${uid}`;
-  if (!exists.length) return send(res, 401, { error: 'unauthorized' }, { 'Set-Cookie': A.clearCookie() });
+  const user = await currentUser(sql, req);
+  if (!user) return send(res, 401, { error: 'unauthorized' }, { 'Set-Cookie': A.clearCookie() });
+  const uid = user.id;
+  // 運営が発行した仮パスワードのままでは、同期できない(先にパスワードを変えてもらう)
+  if (user.mustChange) return send(res, 403, { error: 'must_change_password' });
 
   // 同期の回数制限と、最終アクセス時刻の更新(1時間に1回まで)
   const lim = await R.hit(sql, 'sync_user', String(uid), 600000, C.syncPerUserPer10Min());
@@ -94,11 +97,13 @@ module.exports = api('POST', async (req, res, body) => {
   }
 
   // ユーザーごとの総量の上限: 履歴は古い順に、キー統計は打鍵数の少ない順に削る
-  if (runs.t.length) {
+  // 履歴の上限は、運営が承認した倍率で変わる(null = 無制限)
+  const cap = C.runsCap(user.mult);
+  if (runs.t.length && cap !== null) {
     const [{ n }] = await sql`SELECT count(*)::int AS n FROM runs WHERE user_id = ${uid}`;
-    if (n > MAX_RUNS_TOTAL) {
+    if (n > cap) {
       await sql`DELETE FROM runs WHERE user_id = ${uid} AND (t, mode) IN
-                (SELECT t, mode FROM runs WHERE user_id = ${uid} ORDER BY t DESC, mode OFFSET ${MAX_RUNS_TOTAL})`;
+                (SELECT t, mode FROM runs WHERE user_id = ${uid} ORDER BY t DESC, mode OFFSET ${cap})`;
     }
   }
   if (keys.k.length) {
@@ -123,6 +128,7 @@ module.exports = api('POST', async (req, res, body) => {
     cursor: page.length ? Number(page[page.length - 1].id) : after,
     more,
     keys: keyOut,
-    prefs: pref.length ? { updatedAt: Number(pref[0].updated_at), data: pref[0].prefs } : null
+    prefs: pref.length ? { updatedAt: Number(pref[0].updated_at), data: pref[0].prefs } : null,
+    quota: await quotaInfo(sql, user)
   });
 }, { maxBytes: 1024 * 1024 });

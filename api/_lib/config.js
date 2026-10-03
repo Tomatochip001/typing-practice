@@ -10,5 +10,8 @@ module.exports = {
   maxUsers: () => num('MAX_USERS', 300),
   maxRegistrationsPerDay: () => num('MAX_REGISTRATIONS_PER_DAY', 30),
   registerPerIpPerHour: () => num('REGISTER_PER_IP_PER_HOUR', 3),
-  syncPerUserPer10Min: () => num('SYNC_PER_USER_PER_10MIN', 60)
+  syncPerUserPer10Min: () => num('SYNC_PER_USER_PER_10MIN', 60),
+  // 1人あたりの記録(履歴)の上限。mult は運営が承認した倍率(0 = 無制限 -> null)
+  baseRunsCap: () => num('BASE_RUNS_CAP', 20000),
+  runsCap(mult) { return mult === 0 ? null : this.baseRunsCap() * Math.max(1, mult || 1); }
 };

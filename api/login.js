@@ -19,7 +19,7 @@ module.exports = api('POST', async (req, res, body) => {
     return send(res, 429, { error: 'locked', message: `失敗が続いたため一時的にロックしました。${mins}分後にやり直してください。` });
   }
 
-  const rows = validName ? await sql`SELECT id, salt, hash FROM users WHERE username = ${username}` : [];
+  const rows = validName ? await sql`SELECT id, salt, hash, session_epoch, must_change FROM users WHERE username = ${username}` : [];
   let ok = false;
   if (rows.length) ok = await A.verifyPassword(password, rows[0].salt, rows[0].hash);
   else await A.burn(password);
@@ -31,5 +31,5 @@ module.exports = api('POST', async (req, res, body) => {
   }
   await sql`DELETE FROM login_fails WHERE username = ${key}`;
   await sql`UPDATE users SET last_seen = ${now} WHERE id = ${Number(rows[0].id)}`;
-  send(res, 200, { username }, { 'Set-Cookie': A.sessionCookie(Number(rows[0].id)) });
+  send(res, 200, { username, mustChange: !!rows[0].must_change }, { 'Set-Cookie': A.sessionCookie(Number(rows[0].id), Number(rows[0].session_epoch)) });
 });

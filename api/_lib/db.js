@@ -43,7 +43,37 @@ const SCHEMA = [
      win bigint NOT NULL,
      n integer NOT NULL,
      PRIMARY KEY (bucket, key, win))`,
-  `ALTER TABLE users ADD COLUMN IF NOT EXISTS last_seen bigint`
+  `ALTER TABLE users ADD COLUMN IF NOT EXISTS last_seen bigint`,
+  // パスワードの回復・変更、記録の上限
+  `ALTER TABLE users ADD COLUMN IF NOT EXISTS recovery_salt text`,
+  `ALTER TABLE users ADD COLUMN IF NOT EXISTS recovery_hash text`,
+  `ALTER TABLE users ADD COLUMN IF NOT EXISTS session_epoch integer NOT NULL DEFAULT 0`,   // 上げると、古いログイン(cookie)が全部無効になる
+  `ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change boolean NOT NULL DEFAULT false`, // 運営が発行した仮パスワードのまま、true
+  `ALTER TABLE users ADD COLUMN IF NOT EXISTS quota_mult integer NOT NULL DEFAULT 1`,      // 記録の上限の倍率。0 = 無制限
+  // 記録の上限を上げる申請
+  `CREATE TABLE IF NOT EXISTS quota_requests (
+     id bigserial PRIMARY KEY,
+     user_id bigint NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+     note text NOT NULL DEFAULT '',
+     status text NOT NULL DEFAULT 'pending',
+     runs_at_request integer NOT NULL,
+     created_at bigint NOT NULL,
+     decided_at bigint,
+     admin_note text NOT NULL DEFAULT '',
+     granted_mult integer)`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS quota_pending_one ON quota_requests (user_id) WHERE status = 'pending'`,
+  `CREATE INDEX IF NOT EXISTS quota_requests_status_idx ON quota_requests (status, id)`,
+  // 回復コードをなくした人の、パスワード再発行の申請
+  `CREATE TABLE IF NOT EXISTS reset_requests (
+     id bigserial PRIMARY KEY,
+     user_id bigint NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+     note text NOT NULL DEFAULT '',
+     status text NOT NULL DEFAULT 'pending',
+     created_at bigint NOT NULL,
+     decided_at bigint,
+     admin_note text NOT NULL DEFAULT '')`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS reset_pending_one ON reset_requests (user_id) WHERE status = 'pending'`,
+  `CREATE INDEX IF NOT EXISTS reset_requests_status_idx ON reset_requests (status, id)`
 ];
 
 function getSql() {

@@ -52,4 +52,10 @@ function api(method, handler, opts) {
   };
 }
 
-module.exports = { api, send, clientIp };
+// 管理画面へのリンクなどに使う、このサイトのURL
+function baseUrl(req) {
+  const proto = String(req.headers['x-forwarded-proto'] || 'https').split(',')[0].trim();
+  return `${proto}://${req.headers.host}`;
+}
+
+module.exports = { api, send, clientIp, baseUrl };
