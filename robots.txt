@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+
+Sitemap: https://typing-practice-three-beta.vercel.app/sitemap.xml
