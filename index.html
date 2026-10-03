@@ -60,6 +60,9 @@ select{font:inherit;font-size:14px;color:var(--ink);background:var(--panel);bord
 .btn{font:inherit;font-size:14px;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:8px;padding:7px 14px;cursor:pointer}
 .btn:hover{border-color:var(--accent)}
 .btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:700}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn:disabled:hover{border-color:var(--line)}
+.btn.primary:disabled:hover{border-color:var(--accent)}
 .btn.danger{color:var(--bad)}
 #customBox{display:flex;flex-direction:column;gap:8px}
 #customText{font-family:var(--f-mono);font-size:14px;width:100%;min-height:130px;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--ink);resize:vertical}
