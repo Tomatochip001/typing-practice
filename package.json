@@ -1,0 +1,9 @@
+{
+  "name": "typing-practice",
+  "private": true,
+  "description": "打鍵道場(ログイン・同期用のAPI)",
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "@neondatabase/serverless": "^1.2.0"
+  }
+}
