@@ -151,6 +151,7 @@ dialog h2{margin:0 0 12px;font-size:18px}
 .fld{display:flex;flex-direction:column;gap:4px;margin-bottom:12px;font-size:13px;color:var(--muted)}
 .fld input[type=text],.fld input[type=password]{font:inherit;font-size:16px;font-family:var(--f-mono);padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink)}
 .fld input:focus{outline:2px solid var(--accent);outline-offset:1px}
+.captcha{min-height:65px;margin-bottom:10px}
 .dlg-msg{min-height:1.4em;font-size:13px;color:var(--bad);margin:2px 0 10px}
 .dlg-note{font-size:12px;color:var(--muted);margin:0 0 14px;line-height:1.55}
 @media (max-width:520px){.jp-text{font-size:22px}.big{font-size:52px}.code{font-size:15px}}
@@ -265,6 +266,7 @@ dialog h2{margin:0 0 12px;font-size:18px}
     <label class="fld">ユーザー名<input type="text" id="auUser" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="20" required></label>
     <label class="fld">パスワード<input type="password" id="auPass" name="password" autocomplete="current-password" maxlength="128" required></label>
     <label class="chk" style="margin-bottom:10px;font-size:13px"><input type="checkbox" id="auShow"> パスワードを表示</label>
+    <div class="captcha" id="auCaptcha" hidden></div>
     <p class="dlg-note" id="auNote"></p>
     <div class="dlg-msg" id="auMsg" role="alert"></div>
     <div class="btns" style="justify-content:flex-end">
@@ -1302,6 +1304,48 @@ const AUTH_NOTE = {
   login: '',
   register: 'ユーザー名: 半角英数字と _ - . で3〜20文字。パスワード: 8文字以上で、英字・数字・記号のうち2種類以上を混ぜてください。他のサービスと同じパスワードは使わないでください。メールアドレスは使わないので、パスワードを忘れると復旧できません(新しく作り直しになります)。'
 };
+/* Cloudflare Turnstile(新規登録のときだけ読み込む。ログインでは使わない) */
+const TURNSTILE_SITE_KEY = ''; // Cloudflare Turnstile のサイトキー(公開してよい値)
+let cfScript = null, cfWidget = null;
+ACC.cf = '';
+function captchaUpdate(){ $('#auSubmit').disabled = ACC.mode === 'register' && !ACC.cf; }
+function loadTurnstile(){
+  if (window.turnstile) return Promise.resolve(window.turnstile);
+  if (cfScript) return cfScript;
+  cfScript = new Promise((resolve, reject) => {
+    const el = document.createElement('script');
+    el.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+    el.async = true;
+    el.onload = () => window.turnstile ? resolve(window.turnstile) : reject(new Error('turnstile missing'));
+    el.onerror = () => { cfScript = null; reject(new Error('load failed')); };
+    document.head.appendChild(el);
+  });
+  return cfScript;
+}
+function resetCaptcha(){
+  ACC.cf = '';
+  if (window.turnstile && cfWidget !== null) { try { window.turnstile.reset(cfWidget); } catch(_) {} }
+  captchaUpdate();
+}
+async function showCaptcha(){
+  const box = $('#auCaptcha'), msg = $('#auMsg');
+  box.hidden = false; captchaUpdate();
+  if (!TURNSTILE_SITE_KEY) { msg.textContent = '新規登録は準備中です(ボット対策の設定待ち)。'; return; }
+  try {
+    const ts = await loadTurnstile();
+    if (ACC.mode !== 'register') return;
+    if (cfWidget === null) {
+      cfWidget = ts.render(box, {
+        sitekey: TURNSTILE_SITE_KEY, language: 'ja',
+        callback: tok => { ACC.cf = tok; $('#auMsg').textContent = ''; captchaUpdate(); },
+        'expired-callback': () => { ACC.cf = ''; captchaUpdate(); },
+        'error-callback': () => { ACC.cf = ''; captchaUpdate(); $('#auMsg').textContent = 'ボット対策の確認でエラーが出ました。ページを再読み込みして、もう一度お試しください。'; }
+      });
+    } else resetCaptcha();
+  } catch (_) {
+    msg.textContent = 'ボット対策の読み込みに失敗しました。広告ブロッカーなどを確認して、もう一度お試しください。';
+  }
+}
 function setAuthMode(k){
   ACC.mode = k;
   document.querySelectorAll('#authDlg .seg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.k === k)));
@@ -1310,6 +1354,7 @@ function setAuthMode(k){
   $('#auPass').autocomplete = k === 'login' ? 'current-password' : 'new-password';
   $('#auNote').textContent = AUTH_NOTE[k]; $('#auNote').hidden = !AUTH_NOTE[k];
   $('#auMsg').textContent = '';
+  if (k === 'register') showCaptcha(); else { $('#auCaptcha').hidden = true; captchaUpdate(); }
 }
 function openAuth(){
   setAuthMode('login'); $('#auPass').value = ''; $('#auShow').checked = false; $('#auPass').type = 'password';
@@ -1327,7 +1372,9 @@ $('#authForm').addEventListener('submit', async e => {
   const btn = $('#auSubmit'), msg = $('#auMsg');
   btn.disabled = true; msg.textContent = '';
   try {
-    const r = await post('/api/' + ACC.mode, {username:$('#auUser').value, password:$('#auPass').value});
+    const payload = {username:$('#auUser').value, password:$('#auPass').value};
+    if (ACC.mode === 'register') payload.turnstile = ACC.cf;
+    const r = await post('/api/' + ACC.mode, payload);
     if (!r.ok) {
       msg.textContent = r.data.message || (r.status === 503 ? 'サーバーの設定がまだ終わっていません。' : 'うまくいきませんでした。もう一度お試しください。');
       return;
@@ -1336,7 +1383,7 @@ $('#authForm').addEventListener('submit', async e => {
     closeAuth(); renderAcct(); syncNow();
   } catch (_) {
     msg.textContent = '通信に失敗しました。ネットワークを確認してください。';
-  } finally { btn.disabled = false; }
+  } finally { if (ACC.mode === 'register') resetCaptcha(); btn.disabled = false; captchaUpdate(); }
 });
 
 async function initAccount(){
