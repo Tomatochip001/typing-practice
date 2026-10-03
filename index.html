@@ -139,8 +139,11 @@ th{color:var(--muted);font-weight:400;font-size:12px}
 .acct .who{color:var(--ink);font-weight:700}
 .acct .err{color:var(--bad)}
 .btn.sm{font-size:13px;padding:3px 11px}
+/* モーダルにしない: showModal() だと外側が inert になり、パスワード管理の拡張機能(iCloudパスワード等)が
+   ページに重ねるボタンをクリックできず、入力欄の外クリック扱いで自動入力の有効化が中断される。
+   背景の暗さは box-shadow で作る(クリックを受けないので拡張機能のUIを邪魔しない) */
 dialog{border:1px solid var(--line);border-radius:14px;background:var(--panel);color:var(--ink);padding:22px 24px;width:min(92vw,400px)}
-dialog::backdrop{background:rgba(10,16,24,.55)}
+#authDlg{position:fixed;inset:0;margin:auto;height:fit-content;max-height:92vh;overflow:auto;z-index:1000;box-shadow:0 0 0 100vmax rgba(10,16,24,.55)}
 dialog h2{margin:0 0 12px;font-size:18px}
 .seg{display:flex;gap:3px;background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:3px;margin-bottom:14px}
 .seg button{flex:1;font:inherit;font-size:14px;border:0;background:transparent;color:var(--muted);padding:5px;border-radius:6px;cursor:pointer}
@@ -881,7 +884,7 @@ function setMode(m){
   focusStage();
 }
 function focusStage(){
-  if (view !== 'play') return;
+  if (view !== 'play' || $('#authDlg').open) return;
   if (mode === 'ime') $('#imeInput').focus({preventScroll:true}); else $('#stage').focus({preventScroll:true});
 }
 function updateCustomBox(){
@@ -924,6 +927,7 @@ document.addEventListener('keydown', e => {
   const tg = e.target;
   if (tg && (tg.tagName === 'TEXTAREA' || tg.tagName === 'SELECT' || (tg.tagName === 'INPUT' && tg.id !== 'imeInput'))) return;
   if (tg && tg.id === 'imeInput') return;
+  if (tg && tg.closest && tg.closest('#authDlg')) return;
   if (e.ctrlKey || e.metaKey || e.altKey) return;
   if (e.key === 'Escape') { e.preventDefault(); newSession(); focusStage(); return; }
   if (S.finished) { if (e.key === 'Enter') { e.preventDefault(); newSession(); focusStage(); } return; }
@@ -1308,13 +1312,14 @@ function setAuthMode(k){
 }
 function openAuth(){
   setAuthMode('login'); $('#auPass').value = ''; $('#auShow').checked = false; $('#auPass').type = 'password';
-  const dlg = $('#authDlg'); if (dlg.showModal) dlg.showModal(); else dlg.setAttribute('open', '');
+  const dlg = $('#authDlg'); if (dlg.show) dlg.show(); else dlg.setAttribute('open', '');
   $('#auUser').focus();
 }
 function closeAuth(){ const dlg = $('#authDlg'); if (dlg.close) dlg.close(); else dlg.removeAttribute('open'); }
 document.querySelectorAll('#authDlg .seg button').forEach(b => b.addEventListener('click', () => setAuthMode(b.dataset.k)));
 $('#auShow').addEventListener('change', e => { $('#auPass').type = e.target.checked ? 'text' : 'password'; });
 $('#auCancel').addEventListener('click', closeAuth);
+$('#authDlg').addEventListener('keydown', e => { if (e.key === 'Escape') { e.preventDefault(); closeAuth(); } });
 $('#authDlg').addEventListener('close', () => { $('#auPass').value = ''; focusStage(); });
 $('#authForm').addEventListener('submit', async e => {
   e.preventDefault();
