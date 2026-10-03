@@ -4,8 +4,10 @@
 const { db } = require('./_lib/db');
 const { api, send } = require('./_lib/http');
 const A = require('./_lib/auth');
+const C = require('./_lib/config');
+const R = require('./_lib/ratelimit');
 
-const MAX_RUNS_IN = 20000, PAGE = 20000, MAX_KEYS = 200, MAX_PREFS_BYTES = 150 * 1024;
+const MAX_RUNS_IN = 5000, PAGE = 20000, MAX_KEYS = 200, MAX_PREFS_BYTES = 150 * 1024;
 const num = (v, min, max) => typeof v === 'number' && Number.isFinite(v) && v >= min && v <= max;
 const int = (v, min, max) => num(v, min, max) ? Math.round(v) : null;
 // 範囲外の数値は捨てずに範囲内へ丸める(記録が黙って消えないように)
@@ -40,6 +42,12 @@ module.exports = api('POST', async (req, res, body) => {
   const sql = await db();
   const exists = await sql`SELECT 1 FROM users WHERE id = ${uid}`;
   if (!exists.length) return send(res, 401, { error: 'unauthorized' }, { 'Set-Cookie': A.clearCookie() });
+
+  // 同期の回数制限と、最終アクセス時刻の更新(1時間に1回まで)
+  const lim = await R.hit(sql, 'sync_user', String(uid), 600000, C.syncPerUserPer10Min());
+  if (!lim.ok) return send(res, 429, { error: 'rate_limited', retryAfterSec: lim.retryAfterSec }, { 'Retry-After': String(lim.retryAfterSec) });
+  const nowMs = Date.now();
+  await sql`UPDATE users SET last_seen = ${nowMs} WHERE id = ${uid} AND (last_seen IS NULL OR last_seen < ${nowMs - 3600000})`;
 
   const runs = cleanRuns(body.runs), keys = cleanKeys(body.kd);
   if (runs.t.length) {
@@ -85,4 +93,4 @@ module.exports = api('POST', async (req, res, body) => {
     keys: keyOut,
     prefs: pref.length ? { updatedAt: Number(pref[0].updated_at), data: pref[0].prefs } : null
   });
-});
+}, { maxBytes: 1024 * 1024 });

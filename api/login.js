@@ -28,5 +28,6 @@ module.exports = api('POST', async (req, res, body) => {
     return send(res, 401, { error: 'bad_credentials', message: 'ユーザー名かパスワードが違います。' });
   }
   await sql`DELETE FROM login_fails WHERE username = ${username}`;
+  await sql`UPDATE users SET last_seen = ${now} WHERE id = ${Number(rows[0].id)}`;
   send(res, 200, { username }, { 'Set-Cookie': A.sessionCookie(Number(rows[0].id)) });
 });

@@ -7,14 +7,14 @@ function send(res, status, body, headers) {
   res.end(JSON.stringify(body));
 }
 
-async function readBody(req) {
+async function readBody(req, maxBytes) {
   if (req.body !== undefined && req.body !== null) {
-    if (typeof req.body === 'string') { try { return JSON.parse(req.body); } catch (_) { return null; } }
+    if (typeof req.body === 'string') { if (req.body.length > maxBytes) return null; try { return JSON.parse(req.body); } catch (_) { return null; } }
     return req.body;
   }
   const chunks = [];
   let size = 0;
-  for await (const c of req) { size += c.length; if (size > 4 * 1024 * 1024) return null; chunks.push(c); }
+  for await (const c of req) { size += c.length; if (size > maxBytes) return null; chunks.push(c); }
   const text = Buffer.concat(chunks).toString('utf8');
   if (!text.trim()) return {};
   try { return JSON.parse(text); } catch (_) { return null; }
@@ -26,7 +26,8 @@ function clientIp(req) {
 }
 
 // method: 'POST' など。成功時は handler(req, res, body) を呼ぶ
-function api(method, handler) {
+function api(method, handler, opts) {
+  const maxBytes = (opts && opts.maxBytes) || 16 * 1024;
   return async (req, res) => {
     try {
       if (req.method !== method) return send(res, 405, { error: 'method_not_allowed' }, { Allow: method });
@@ -36,7 +37,8 @@ function api(method, handler) {
         try { host = new URL(origin).host; } catch (_) {}
         if (host !== req.headers.host) return send(res, 403, { error: 'bad_origin' });
       }
-      const body = method === 'GET' ? null : await readBody(req);
+      if (method !== 'GET' && Number(req.headers['content-length'] || 0) > maxBytes) return send(res, 413, { error: 'too_large' });
+      const body = method === 'GET' ? null : await readBody(req, maxBytes);
       if (method !== 'GET' && (body === null || typeof body !== 'object')) return send(res, 400, { error: 'bad_json' });
       await handler(req, res, body);
     } catch (e) {

@@ -1236,6 +1236,7 @@ function syncNow(){
       if (view === 'rec') renderRecords();
     } catch (e) {
       if (e.status === 401) { ACC.loggedIn = false; ACC.err = 'ログインの期限が切れました。もう一度ログインしてください。'; }
+      else if (e.status === 429) { ACC.err = '同期の回数が多すぎます。少し待ってから自動で再試行します。'; scheduleSync(65000); }
       else ACC.err = '同期できませんでした。通信が戻ったら自動で再送します。';
     } finally {
       ACC.syncing = false; syncPromise = null; renderAcct();
