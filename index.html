@@ -147,7 +147,9 @@ th{color:var(--muted);font-weight:400;font-size:12px}
    ページに重ねるボタンをクリックできず、入力欄の外クリック扱いで自動入力の有効化が中断される。
    背景の暗さは box-shadow で作る(クリックを受けないので拡張機能のUIを邪魔しない) */
 dialog{border:1px solid var(--line);border-radius:14px;background:var(--panel);color:var(--ink);padding:22px 24px;width:min(92vw,400px)}
-#authDlg{position:fixed;inset:0;margin:auto;height:fit-content;max-height:92vh;overflow:auto;z-index:1000;box-shadow:0 0 0 100vmax rgba(10,16,24,.55)}
+dialog.mdl{position:fixed;inset:0;margin:auto;height:fit-content;max-height:92vh;overflow:auto;z-index:1000;box-shadow:0 0 0 100vmax rgba(10,16,24,.55)}
+dialog.mdl.top{z-index:1100}
+dialog.wide{width:min(94vw,520px)}
 dialog h2{margin:0 0 12px;font-size:18px}
 .seg{display:flex;gap:3px;background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:3px;margin-bottom:14px}
 .seg button{flex:1;font:inherit;font-size:14px;border:0;background:transparent;color:var(--muted);padding:5px;border-radius:6px;cursor:pointer}
@@ -156,6 +158,10 @@ dialog h2{margin:0 0 12px;font-size:18px}
 .fld input[type=text],.fld input[type=password]{font:inherit;font-size:16px;font-family:var(--f-mono);padding:7px 9px;border:2px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink)}
 .fld input:focus{outline:2px solid var(--accent);outline-offset:1px}
 /* 合否の色: 枠線は太く、背景もごく薄く染める。入力中(フォーカス中)の輪郭も同じ色にして、青に隠れないようにする */
+.fld textarea{font:inherit;font-size:15px;padding:7px 9px;border:2px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);resize:vertical}
+.fld textarea:focus{outline:2px solid var(--accent);outline-offset:1px}
+.fld textarea.valid{border-color:var(--ok);background:color-mix(in oklab, var(--ok) 10%, var(--bg))}
+.fld textarea.invalid{border-color:var(--bad);background:color-mix(in oklab, var(--bad) 10%, var(--bg))}
 .fld input.valid{border-color:var(--ok);background:color-mix(in oklab, var(--ok) 10%, var(--bg))}
 .fld input.invalid{border-color:var(--bad);background:color-mix(in oklab, var(--bad) 10%, var(--bg))}
 .fld input.valid:focus{outline-color:var(--ok)}
@@ -164,6 +170,18 @@ dialog h2{margin:0 0 12px;font-size:18px}
 .fld .why.ok{color:var(--ok)}
 .fld .why:empty{display:none}
 .captcha{min-height:65px;margin-bottom:10px}
+.links{display:flex;flex-direction:column;align-items:flex-start;gap:6px;margin:0 0 12px}
+.link{font:inherit;font-size:13px;background:none;border:0;padding:0;color:var(--accent);text-decoration:underline;cursor:pointer;text-align:left}
+.link:hover{text-decoration:none}
+.dlg-msg.ok{color:var(--ok);font-weight:700}
+.code-box{font-family:var(--f-mono);font-size:21px;font-weight:600;letter-spacing:.06em;text-align:center;padding:14px 8px;border:2px dashed var(--accent);border-radius:10px;background:var(--accent-soft);color:var(--ink);word-break:break-all;user-select:all}
+.warnbox{background:color-mix(in oklab, var(--bad) 12%, var(--panel));border:2px solid var(--bad);border-radius:10px;padding:10px 12px;font-size:13.5px;margin:0 0 12px}
+section.set{border-top:1px solid var(--line);padding-top:12px;margin-top:14px}
+section.set h3{font-size:15px;margin:0 0 8px}
+#qInfo{font-size:14px;font-variant-numeric:tabular-nums}
+#qState{font-size:13px;margin:8px 0}
+#setDlg .bar{margin:6px 0}
+#setDlg .bar i.warn{background:var(--bad)}
 .dlg-msg{min-height:1.4em;font-size:13px;color:var(--bad);margin:2px 0 10px}
 .dlg-note{font-size:12px;color:var(--muted);margin:0 0 14px;line-height:1.55}
 @media (max-width:520px){.jp-text{font-size:22px}.big{font-size:52px}.code{font-size:15px}}
@@ -268,17 +286,24 @@ dialog h2{margin:0 0 12px;font-size:18px}
   </section>
 </div>
 
-<dialog id="authDlg" aria-labelledby="authTitle">
+<dialog id="authDlg" class="mdl" aria-labelledby="authTitle">
   <form id="authForm" autocomplete="on">
     <h2 id="authTitle">ログイン</h2>
-    <div class="seg" role="group" aria-label="操作の選択">
+    <div class="seg" id="auSeg" role="group" aria-label="操作の選択">
       <button type="button" data-k="login" aria-pressed="true">ログイン</button>
       <button type="button" data-k="register" aria-pressed="false">新規登録</button>
     </div>
     <label class="fld">ユーザー名<input type="text" id="auUser" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="60" required><span class="why" id="auUserWhy" aria-live="polite"></span></label>
-    <label class="fld">パスワード<input type="password" id="auPass" name="password" autocomplete="current-password" maxlength="128" required><span class="why" id="auPassWhy" aria-live="polite"></span></label>
-    <label class="chk" style="margin-bottom:10px;font-size:13px"><input type="checkbox" id="auShow"> パスワードを表示</label>
+    <label class="fld" id="auCodeFld" hidden>回復コード(20文字)<input type="text" id="auCode" name="recovery-code" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="40" placeholder="XXXXX-XXXXX-XXXXX-XXXXX"><span class="why" id="auCodeWhy" aria-live="polite"></span></label>
+    <label class="fld" id="auPassFld"><span id="auPassLbl">パスワード</span><input type="password" id="auPass" name="password" autocomplete="current-password" maxlength="128" required><span class="why" id="auPassWhy" aria-live="polite"></span></label>
+    <label class="fld" id="auReqFld" hidden>本人確認と連絡のための情報<textarea id="auReq" maxlength="500" rows="4" placeholder="例: 登録した時期、よく練習していた内容、連絡のつく方法(会える日・場所、Discordのユーザー名 など)"></textarea><span class="why" id="auReqWhy" aria-live="polite"></span></label>
+    <label class="chk" id="auShowLbl" style="margin-bottom:10px;font-size:13px"><input type="checkbox" id="auShow"> パスワードを表示</label>
     <div class="captcha" id="auCaptcha" hidden></div>
+    <div class="links" id="auLinks">
+      <button type="button" class="link" id="lnkForgot">パスワードを忘れた</button>
+      <button type="button" class="link" id="lnkRequest" hidden>回復コードもなくした → 運営に再発行を申請する</button>
+      <button type="button" class="link" id="lnkBack" hidden>← ログインにもどる</button>
+    </div>
     <p class="dlg-note" id="auNote"></p>
     <div class="dlg-msg" id="auMsg" role="alert"></div>
     <div class="btns" style="justify-content:flex-end">
@@ -286,6 +311,59 @@ dialog h2{margin:0 0 12px;font-size:18px}
       <button type="submit" class="btn primary" id="auSubmit">ログイン</button>
     </div>
   </form>
+</dialog>
+
+<dialog id="codeDlg" class="mdl top" aria-labelledby="codeTitle">
+  <h2 id="codeTitle">回復コード</h2>
+  <p class="dlg-note" id="codeText"></p>
+  <div class="code-box" id="codeVal" tabindex="0"></div>
+  <div class="btns" style="margin:10px 0 4px">
+    <button type="button" class="btn" id="codeCopy">コピー</button>
+    <button type="button" class="btn" id="codeSave">ファイルに保存</button>
+  </div>
+  <div class="hint" id="codeMsg" role="status" style="min-height:1.4em"></div>
+  <label class="chk" style="margin:8px 0 12px;font-size:14px"><input type="checkbox" id="codeAck"> 安全な場所に保管しました</label>
+  <div class="btns" style="justify-content:flex-end"><button type="button" class="btn primary" id="codeClose" disabled>閉じる</button></div>
+</dialog>
+
+<dialog id="setDlg" class="mdl wide" aria-labelledby="setTitle">
+  <h2 id="setTitle">アカウント</h2>
+  <p class="warnbox" id="setForced" hidden>運営が発行した仮パスワードでログインしています。<b>先に、新しいパスワードに変更してください。</b>変更するまで、記録の同期はできません。</p>
+  <section class="set" id="setQuota">
+    <h3>記録の保存量</h3>
+    <div id="qInfo"></div>
+    <div class="bar" id="qBar" hidden><i></i></div>
+    <div id="qState"></div>
+    <div id="qForm" hidden>
+      <label class="fld">運営へのひとこと(任意・300文字まで)<textarea id="qNote" maxlength="300" rows="3" placeholder="例: 毎日練習していて、記録を残したいです"></textarea></label>
+      <button type="button" class="btn primary" id="qSend">上限を上げる申請を送る</button>
+      <div class="dlg-msg" id="qMsg" role="alert"></div>
+    </div>
+  </section>
+  <section class="set" id="setPw">
+    <h3>パスワードの変更</h3>
+    <form id="pwForm" autocomplete="on">
+      <input type="text" id="pwUser" name="username" autocomplete="username" hidden tabindex="-1" aria-hidden="true">
+      <label class="fld"><span id="pwCurLbl">いまのパスワード</span><input type="password" id="pwCur" name="current-password" autocomplete="current-password" maxlength="128"></label>
+      <label class="fld">新しいパスワード<input type="password" id="pwNew" name="new-password" autocomplete="new-password" maxlength="128"><span class="why" id="pwNewWhy" aria-live="polite"></span></label>
+      <div class="dlg-msg" id="pwMsg" role="alert"></div>
+      <button type="submit" class="btn primary" id="pwSubmit" disabled>パスワードを変更する</button>
+      <p class="hint">変更すると、ほかの端末のログインは切れます。</p>
+    </form>
+  </section>
+  <section class="set" id="setRec">
+    <h3>回復コード</h3>
+    <p class="hint" id="rcState"></p>
+    <form id="rcForm" autocomplete="off">
+      <label class="fld">パスワード(確認のため)<input type="password" id="rcPass" autocomplete="current-password" maxlength="128"></label>
+      <div class="dlg-msg" id="rcMsg" role="alert"></div>
+      <button type="submit" class="btn" id="rcSubmit" disabled>新しい回復コードを発行する</button>
+    </form>
+  </section>
+  <div class="btns" style="justify-content:space-between;margin-top:16px">
+    <button type="button" class="btn" id="setLogout">ログアウト</button>
+    <button type="button" class="btn" id="setClose">閉じる</button>
+  </div>
 </dialog>
 
 <script type="text/plain" id="data">
@@ -446,7 +524,7 @@ return function const let var public private static void int float bool string c
 const $ = s => document.querySelector(s);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const STORE = 'dakendojo-v1';
-const HIST_MAX = 20000;
+let HIST_MAX = 20000; // 運営が記録の上限を上げたら、端末にも最大4万件まで残す(localStorageの容量の都合)
 function loadDB(){ try { return JSON.parse(localStorage.getItem(STORE)); } catch(e){ return null; } }
 function saveDB(){ try { localStorage.setItem(STORE, JSON.stringify(DB)); } catch(e){} }
 let DB = Object.assign({keys:{}, history:[], customCode:'', customIme:'', layout:'jis', kbMode:'miss', account:null, kd:{}, cursor:0, prefsAt:0, prefsSynced:0}, loadDB() || {});
@@ -898,7 +976,7 @@ function setMode(m){
   focusStage();
 }
 function focusStage(){
-  if (view !== 'play' || $('#authDlg').open) return;
+  if (view !== 'play' || document.querySelector('dialog[open]')) return;
   if (mode === 'ime') $('#imeInput').focus({preventScroll:true}); else $('#stage').focus({preventScroll:true});
 }
 function updateCustomBox(){
@@ -941,7 +1019,7 @@ document.addEventListener('keydown', e => {
   const tg = e.target;
   if (tg && (tg.tagName === 'TEXTAREA' || tg.tagName === 'SELECT' || (tg.tagName === 'INPUT' && tg.id !== 'imeInput'))) return;
   if (tg && tg.id === 'imeInput') return;
-  if (tg && tg.closest && tg.closest('#authDlg')) return;
+  if (tg && tg.closest && tg.closest('dialog')) return;
   if (e.ctrlKey || e.metaKey || e.altKey) return;
   if (e.key === 'Escape') { e.preventDefault(); newSession(); focusStage(); return; }
   if (S.finished) { if (e.key === 'Enter') { e.preventDefault(); newSession(); focusStage(); } return; }
@@ -1128,7 +1206,7 @@ $('#expBtn').addEventListener('click', () => {
   const a = document.createElement('a');
   const d = new Date(), ymd = d.getFullYear() + String(d.getMonth()+1).padStart(2,'0') + String(d.getDate()).padStart(2,'0');
   a.href = URL.createObjectURL(new Blob([JSON.stringify(out)], {type:'application/json'}));
-  a.download = `打鍵道場_記録_${ymd}.json`;
+  a.download = `dakendojo-records-${ymd}.json`;
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   ioMsg(`書き出しました(履歴 ${DB.history.length} 件)。`);
@@ -1229,7 +1307,7 @@ function syncNow(){
         try {
           r = await post('/api/sync', {after:DB.cursor, runs:sentRuns.map(({u, ...h}) => h), kd:sentKd, prefs});
         } catch (e) { mergeDelta(DB.kd, sentKd); throw e; }
-        if (!r.ok) { mergeDelta(DB.kd, sentKd); const e = new Error('http ' + r.status); e.status = r.status; throw e; }
+        if (!r.ok) { mergeDelta(DB.kd, sentKd); const e = new Error('http ' + r.status); e.status = r.status; e.data = r.data; throw e; }
         first = false;
         const d = r.data, have = new Set(DB.history.map(h => h.t + '|' + h.mode));
         (d.runs || []).forEach(x => { const k = x.t + '|' + x.mode; if (!have.has(k)) { have.add(k); DB.history.push(x); } });
@@ -1241,6 +1319,7 @@ function syncNow(){
         mergeDelta(DB.keys, DB.kd);
         if (prefs) DB.prefsSynced = prefs.updatedAt;
         if (d.prefs && d.prefs.updatedAt > DB.prefsAt) applyPrefs(d.prefs);
+        if (d.quota) setQuota(d.quota);
         saveDB();
         const leftover = DB.history.some(h => h.u);
         if (!d.more && !leftover) break;
@@ -1250,6 +1329,7 @@ function syncNow(){
       if (view === 'rec') renderRecords();
     } catch (e) {
       if (e.status === 401) { ACC.loggedIn = false; ACC.err = 'ログインの期限が切れました。もう一度ログインしてください。'; }
+      else if (e.status === 403 && e.data && e.data.error === 'must_change_password') { ACC.mustChange = true; openSettings(); }
       else if (e.status === 429) { ACC.err = '同期の回数が多すぎます。少し待ってから自動で再試行します。'; scheduleSync(65000); }
       else ACC.err = '同期できませんでした。通信が戻ったら自動で再送します。';
     } finally {
@@ -1261,6 +1341,7 @@ function syncNow(){
 }
 
 const hhmm = t => { const d = new Date(t); return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0'); };
+const fmtN = n => Number(n).toLocaleString('en-US');
 function renderAcct(){
   const el = $('#acct');
   el.hidden = !ACC.avail;
@@ -1268,17 +1349,30 @@ function renderAcct(){
   const err = ACC.err ? `<span class="err">${esc(ACC.err)}</span>` : '';
   if (ACC.loggedIn) {
     const st = ACC.syncing ? '同期中…' : ACC.at ? '同期済み ' + hhmm(ACC.at) : '';
-    el.innerHTML = `<span class="who">${esc(ACC.user)}</span><span>${st}</span>${err}
-      <button class="btn sm" id="btnSync">今すぐ同期</button><button class="btn sm" id="btnLogout">ログアウト</button>`;
+    const q = ACC.quota, rq = q && q.request;
+    let alert = '';
+    if (ACC.mustChange) alert = `<button class="btn sm danger" id="btnAcctForced">仮パスワードを変更してください</button>`;
+    else if (rq && rq.status === 'pending') alert = '<span>上限の申請中</span>';
+    else if (rq && rq.status !== 'pending' && rq.decidedAt > (DB.quotaSeen || 0)) alert = `<button class="btn sm" id="btnQuota">上限の申請の結果が届いています</button>`; // まだ読んでいない結果を、先に知らせる
+    else if (q && q.atLimit) alert = `<span class="err">記録が上限(${fmtN(q.cap)}件)に近づいています</span><button class="btn sm" id="btnQuota">上限の申請</button>`;
+    el.innerHTML = `<span class="who">${esc(ACC.user)}</span><span>${st}</span>${err}${alert}
+      <button class="btn sm" id="btnSync">今すぐ同期</button><button class="btn sm" id="btnAcct">アカウント</button><button class="btn sm" id="btnLogout">ログアウト</button>`;
   } else {
     el.innerHTML = `${err}<span>ログインすると、別の端末でも同じ記録を使えます</span><button class="btn sm" id="btnLogin">ログイン / 新規登録</button>`;
   }
+}
+// サーバーから届いた、記録の件数・上限・申請の状況
+function setQuota(q){
+  ACC.quota = q;
+  HIST_MAX = (q.cap === null || q.cap > 20000) ? 40000 : 20000;
+  if ($('#setDlg').open) renderSettings();
 }
 $('#acct').addEventListener('click', e => {
   const id = e.target.id;
   if (id === 'btnLogin') openAuth();
   else if (id === 'btnSync') { syncNow(); }
   else if (id === 'btnLogout') logout();
+  else if (id === 'btnAcct' || id === 'btnAcctForced' || id === 'btnQuota') openSettings();
 });
 
 /* ログイン後の端末データの扱い: 別アカウントの記録が残っていたら確認、初めてのアカウントならこの端末の記録を取り込む */
@@ -1303,7 +1397,7 @@ async function logout(){
   clearTimeout(syncTimer);
   await syncNow();
   try { await post('/api/logout', {}); } catch(_){}
-  ACC.loggedIn = false; ACC.err = '';
+  ACC.loggedIn = false; ACC.err = ''; ACC.quota = null; ACC.mustChange = false; closeSet();
   if (confirm('この端末に残っている記録も消しますか?\n(クラウドには残っています。共有のパソコンでは「OK」を選んでください)')) {
     clearLocal(); DB.account = null; DB.prefsAt = DB.prefsSynced = 0; ACC.user = null; ACC.at = 0;
     setMode(view === 'rec' ? 'rec' : mode);
@@ -1311,15 +1405,19 @@ async function logout(){
   saveDB(); renderAcct();
 }
 
-/* ログイン画面 */
+/* ログイン画面(ログイン / 新規登録 / パスワードを忘れた / 運営への再発行の申請) */
 const AUTH_NOTE = {
   login: '',
-  register: 'ユーザー名: 1〜30文字で、日本語・絵文字・記号・スペースなど、どんな文字でも使えます(大文字小文字と全角半角は区別されません)。パスワード: 8文字以上で、英字・数字・記号のうち2種類以上を混ぜてください。他のサービスと同じパスワードは使わないでください。メールアドレスは使わないので、パスワードを忘れると復旧できません(新しく作り直しになります)。'
+  register: 'ユーザー名: 1〜30文字で、日本語・絵文字・記号・スペースなど、どんな文字でも使えます(大文字小文字と全角半角は区別されません。不適切な名前や、運営と紛らわしい名前は使えません)。パスワード: 8文字以上で、英字・数字・記号のうち2種類以上を混ぜてください。他のサービスと同じパスワードは使わないでください。登録が終わると、パスワードを忘れたときに使う「回復コード」が1回だけ表示されます。必ず保管してください。',
+  forgot: 'ユーザー名と、登録のときに表示された回復コード(20文字)を入れて、新しいパスワードを決めてください。使った回復コードは使えなくなり、新しい回復コードが表示されます。',
+  request: '運営への再発行の申請は、回復コードもなくした人のための最後の手段です。管理画面からのパスワード発行は、普段から対応するものではありません。本人確認ができない場合や、運営の都合で対応できない場合があります。回復コードは必ず保管してください。'
 };
+const needsCaptcha = m => m === 'register' || m === 'request';
 /* Cloudflare Turnstile(新規登録のときだけ読み込む。ログインでは使わない) */
 const TURNSTILE_SITE_KEY = '0x4AAAAAAFM0H0wgv_eWm7AX'; // Cloudflare Turnstile のサイトキー(公開してよい値)
 let cfScript = null, cfWidget = null;
 ACC.cf = '';
+ACC.mode = 'login';
 /* 入力チェック(サーバー api/_lib/auth.js の checkUsername / checkPassword と同じ規則) */
 const WEAK_PW = new Set(['password', 'password1', '12345678', '123456789', 'qwertyui', 'qwerty123', 'abcd1234', 'iloveyou', '11111111', 'asdfghjk']);
 // ユーザー名: どんな文字でも可(サーバーの api/_lib/auth.js の normUsername / checkUsername と同じ規則)
@@ -1348,23 +1446,49 @@ function mark(input, why, problem, touched){
   why.classList.toggle('ok', touched && !problem);
   why.textContent = touched ? (problem || '✓ OK') : ''; // 色だけに頼らず、合っているときも印を出す
 }
+// 回復コード(20文字。I・O・0・1 は使われていない)。小文字・全角・区切りの有無は問わない
+const normRecCode = t => t.normalize('NFKC').toUpperCase().replace(/[^A-Z0-9]/g, '');
+function codeProblem(raw){
+  const c = normRecCode(raw);
+  if (c.length !== 20) return `回復コードは20文字です(いま${c.length}文字)`;
+  if (!/^[A-HJ-NP-Z2-9]{20}$/.test(c)) return '使われていない文字があります(0・1・I・O は回復コードに使われません)';
+  return '';
+}
+function noteProblem(raw){
+  const n = Array.from(raw.trim()).length;
+  return n >= 5 ? '' : `あと${5 - n}文字以上、書いてください`;
+}
 function validateAuth(){
-  const u = $('#auUser').value, p = $('#auPass').value;
-  if (ACC.mode === 'register') {
+  const m = ACC.mode, u = $('#auUser').value, p = $('#auPass').value;
+  const off = (el, why) => mark(el, why, '', false);
+  if (m === 'register') {
     const up = userProblem(u), pp = passProblem(p, u);
     mark($('#auUser'), $('#auUserWhy'), up, u !== '');
     mark($('#auPass'), $('#auPassWhy'), pp, p !== '');
+    off($('#auCode'), $('#auCodeWhy')); off($('#auReq'), $('#auReqWhy'));
     ACC.valid = !up && !pp;
+  } else if (m === 'forgot') {
+    const c = $('#auCode').value, up = userProblem(u), cp = codeProblem(c), pp = passProblem(p, u);
+    mark($('#auUser'), $('#auUserWhy'), up, u !== '');
+    mark($('#auCode'), $('#auCodeWhy'), cp, c !== '');
+    mark($('#auPass'), $('#auPassWhy'), pp, p !== '');
+    off($('#auReq'), $('#auReqWhy'));
+    ACC.valid = !up && !cp && !pp;
+  } else if (m === 'request') {
+    const r = $('#auReq').value, up = userProblem(u), rp = noteProblem(r);
+    mark($('#auUser'), $('#auUserWhy'), up, u !== '');
+    mark($('#auReq'), $('#auReqWhy'), rp, r !== '');
+    off($('#auPass'), $('#auPassWhy')); off($('#auCode'), $('#auCodeWhy'));
+    ACC.valid = !up && !rp;
   } else {
-    mark($('#auUser'), $('#auUserWhy'), '', false);
-    mark($('#auPass'), $('#auPassWhy'), '', false);
+    off($('#auUser'), $('#auUserWhy')); off($('#auPass'), $('#auPassWhy')); off($('#auCode'), $('#auCodeWhy')); off($('#auReq'), $('#auReqWhy'));
     ACC.valid = u.trim() !== '' && p !== '';
   }
   captchaUpdate();
 }
 ACC.valid = false;
 // 登録: 入力が条件に合い、人間確認も済んでいるときだけボタンを有効(青)にする
-function captchaUpdate(){ $('#auSubmit').disabled = !ACC.valid || (ACC.mode === 'register' && !ACC.cf); }
+function captchaUpdate(){ $('#auSubmit').disabled = !ACC.valid || (needsCaptcha(ACC.mode) && !ACC.cf); }
 function loadTurnstile(){
   if (window.turnstile) return Promise.resolve(window.turnstile);
   if (cfScript) return cfScript;
@@ -1386,10 +1510,10 @@ function resetCaptcha(){
 async function showCaptcha(){
   const box = $('#auCaptcha'), msg = $('#auMsg');
   box.hidden = false; captchaUpdate();
-  if (!TURNSTILE_SITE_KEY) { msg.textContent = '新規登録は準備中です(ボット対策の設定待ち)。'; return; }
+  if (!TURNSTILE_SITE_KEY) { msg.textContent = 'この機能は準備中です(ボット対策の設定待ち)。'; return; }
   try {
     const ts = await loadTurnstile();
-    if (ACC.mode !== 'register') return;
+    if (!needsCaptcha(ACC.mode)) return;
     if (cfWidget === null) {
       cfWidget = ts.render(box, {
         sitekey: TURNSTILE_SITE_KEY, language: 'ja',
@@ -1402,20 +1526,34 @@ async function showCaptcha(){
     msg.textContent = 'ボット対策の読み込みに失敗しました。広告ブロッカーなどを確認して、もう一度お試しください。';
   }
 }
+const AUTH_TITLE = { login: 'ログイン', register: '新規登録', forgot: 'パスワードの再設定', request: '運営にパスワードの再発行を申請' };
+const AUTH_SUBMIT = { login: 'ログイン', register: '登録してログイン', forgot: 'パスワードを再設定する', request: '申請を送る' };
 function setAuthMode(k){
   ACC.mode = k;
   { const a = document.activeElement; if (a && a.tagName === 'INPUT' && $('#authDlg').contains(a)) a.blur(); }
   document.querySelectorAll('#authDlg .seg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.k === k)));
-  $('#authTitle').textContent = k === 'login' ? 'ログイン' : '新規登録';
-  $('#auSubmit').textContent = k === 'login' ? 'ログイン' : '登録してログイン';
+  $('#auSeg').hidden = !(k === 'login' || k === 'register');
+  $('#authTitle').textContent = AUTH_TITLE[k];
+  $('#auSubmit').textContent = AUTH_SUBMIT[k]; $('#auSubmit').hidden = false; $('#auCancel').textContent = 'キャンセル';
+  $('#auPassLbl').textContent = k === 'forgot' ? '新しいパスワード' : 'パスワード';
   $('#auPass').autocomplete = k === 'login' ? 'current-password' : 'new-password';
+  $('#auCodeFld').hidden = k !== 'forgot';
+  $('#auPassFld').hidden = k === 'request';
+  $('#auReqFld').hidden = k !== 'request';
+  $('#auShowLbl').hidden = k === 'request';
+  $('#lnkForgot').hidden = k !== 'login';
+  $('#lnkRequest').hidden = k !== 'forgot';
+  $('#lnkBack').hidden = !(k === 'forgot' || k === 'request');
+  $('#auLinks').hidden = k === 'register'; // 登録の画面には、リンクがない
   $('#auNote').textContent = AUTH_NOTE[k]; $('#auNote').hidden = !AUTH_NOTE[k];
-  $('#auMsg').textContent = '';
-  if (k === 'register') showCaptcha(); else $('#auCaptcha').hidden = true;
+  $('#auMsg').textContent = ''; $('#auMsg').className = 'dlg-msg';
+  if (needsCaptcha(k)) showCaptcha(); else $('#auCaptcha').hidden = true;
   validateAuth();
 }
 function openAuth(){
-  $('#auUser').value = ''; $('#auPass').value = ''; $('#auShow').checked = false; $('#auPass').type = 'password';
+  ['#auUser', '#auPass', '#auCode', '#auReq'].forEach(id => { $(id).value = ''; });
+  $('#auShow').checked = false; $('#auPass').type = 'password';
+  $('#authForm').noValidate = true; // 入力のチェックは自前で行う(隠れた欄でブラウザの検証に止められないように)
   setAuthMode('login');
   const dlg = $('#authDlg'); if (dlg.show) dlg.show(); else dlg.setAttribute('open', '');
   $('#auUser').focus();
@@ -1437,30 +1575,179 @@ document.querySelectorAll('#authDlg .seg button').forEach(b => b.addEventListene
 $('#auShow').addEventListener('change', e => { $('#auPass').type = e.target.checked ? 'text' : 'password'; });
 $('#auCancel').addEventListener('click', closeAuth);
 $('#authDlg').addEventListener('keydown', e => { if (e.key === 'Escape') { e.preventDefault(); closeAuth(); } });
-$('#authDlg').addEventListener('close', () => { $('#auPass').value = ''; validateAuth(); focusStage(); });
-['input', 'change'].forEach(ev => { $('#auUser').addEventListener(ev, validateAuth); $('#auPass').addEventListener(ev, validateAuth); });
+$('#authDlg').addEventListener('close', () => { $('#auPass').value = ''; $('#auCode').value = ''; validateAuth(); focusStage(); });
+['input', 'change'].forEach(ev => ['#auUser', '#auPass', '#auCode', '#auReq'].forEach(id => $(id).addEventListener(ev, validateAuth)));
+$('#lnkForgot').addEventListener('click', () => setAuthMode('forgot'));
+$('#lnkRequest').addEventListener('click', () => setAuthMode('request'));
+$('#lnkBack').addEventListener('click', () => setAuthMode('login'));
+const AUTH_PATH = { login: '/api/login', register: '/api/register', forgot: '/api/recover', request: '/api/recover' };
 $('#authForm').addEventListener('submit', async e => {
   e.preventDefault();
-  const btn = $('#auSubmit'), msg = $('#auMsg');
+  const btn = $('#auSubmit'), msg = $('#auMsg'), m = ACC.mode;
   validateAuth();
   if (btn.disabled) return; // 条件に合わない入力は送らない(ウィジェットもやり直さない)
-  btn.disabled = true; msg.textContent = '';
+  btn.disabled = true; msg.textContent = ''; msg.className = 'dlg-msg';
   let spent = false; // 人間確認のトークンを使い切ったか(使い切ったときだけウィジェットをやり直す)
   try {
-    const payload = {username:$('#auUser').value, password:$('#auPass').value};
-    if (ACC.mode === 'register') payload.turnstile = ACC.cf;
-    const r = await post('/api/' + ACC.mode, payload);
+    const u = $('#auUser').value;
+    const payload = m === 'login' ? {username:u, password:$('#auPass').value}
+      : m === 'register' ? {username:u, password:$('#auPass').value, turnstile:ACC.cf}
+      : m === 'forgot' ? {action:'reset', username:u, code:$('#auCode').value, password:$('#auPass').value}
+      : {action:'request', username:u, note:$('#auReq').value, turnstile:ACC.cf};
+    const r = await post(AUTH_PATH[m], payload);
     spent = r.ok || ['captcha', 'captcha_unavailable', 'taken'].includes(r.data.error);
     if (!r.ok) {
-      msg.textContent = r.data.message || (r.status === 503 ? 'サーバーの設定がまだ終わっていません。' : 'うまくいきませんでした。もう一度お試しください。');
+      if (r.data.error === 'name_blocked') mark($('#auUser'), $('#auUserWhy'), 'このユーザー名は使えません', true);
+      else msg.textContent = r.data.message || (r.status === 503 ? 'サーバーの設定がまだ終わっていません。' : 'うまくいきませんでした。もう一度お試しください。');
+      return;
+    }
+    if (m === 'request') { // 申請の受け付けだけ。ログインはしない
+      msg.textContent = r.data.message || '申請を受け付けました。'; msg.className = 'dlg-msg ok';
+      $('#auSubmit').hidden = true; $('#auCancel').textContent = '閉じる';
       return;
     }
     if (!adopt(r.data.username)) { try { await post('/api/logout', {}); } catch(_){} ACC.loggedIn = false; msg.textContent = 'ログインを取り消しました。'; return; }
-    closeAuth(); renderAcct(); syncNow();
+    ACC.mustChange = !!r.data.mustChange; ACC.hasRecovery = m !== 'login' || ACC.hasRecovery;
+    closeAuth(); renderAcct();
+    if (r.data.recoveryCode) showCode(r.data.recoveryCode, m === 'register' ? 'register' : 'reset');
+    await refreshMe();
+    if (ACC.mustChange) openSettings(); else syncNow();
   } catch (_) {
     spent = true; // 通信の途中で失敗したときは、使われたかどうか分からないのでやり直す
     msg.textContent = '通信に失敗しました。ネットワークを確認してください。';
-  } finally { if (ACC.mode === 'register' && spent) resetCaptcha(); btn.disabled = false; captchaUpdate(); }
+  } finally { if (needsCaptcha(m) && spent) resetCaptcha(); btn.disabled = false; captchaUpdate(); }
+});
+
+/* ---------- 回復コードの表示(この画面でしか見られない) ---------- */
+const CODE_TEXT = {
+  register: 'このコードは、パスワードを忘れたときに必要です。この画面でしか表示されません。コピーするか、ファイルに保存して、安全な場所に保管してください。他の人には見せないでください。',
+  reset: 'パスワードを再設定しました。使ったコードはもう使えません。新しい回復コードを、保管してください(この画面でしか表示されません)。',
+  regen: '新しい回復コードを発行しました。前のコードは使えなくなりました。この画面でしか表示されないので、保管してください。',
+  temp: 'パスワードを変更しました。回復コードも新しくなったので、保管してください(この画面でしか表示されません)。'
+};
+let codeShown = '', codeUser = '';
+function showCode(code, kind){
+  codeShown = code; codeUser = ACC.user || '';
+  $('#codeTitle').textContent = kind === 'register' ? '回復コードを保管してください' : '新しい回復コード';
+  $('#codeText').textContent = CODE_TEXT[kind] || CODE_TEXT.register;
+  $('#codeVal').textContent = code; $('#codeMsg').textContent = '';
+  $('#codeAck').checked = false; $('#codeClose').disabled = true;
+  const dlg = $('#codeDlg'); if (dlg.show) dlg.show(); else dlg.setAttribute('open', '');
+  $('#codeVal').focus();
+}
+function closeCode(){
+  codeShown = ''; $('#codeVal').textContent = ''; // 画面にも、メモリにも残さない
+  const dlg = $('#codeDlg'); if (dlg.close) dlg.close(); else dlg.removeAttribute('open');
+}
+$('#codeAck').addEventListener('change', e => { $('#codeClose').disabled = !e.target.checked; });
+$('#codeClose').addEventListener('click', closeCode);
+$('#codeCopy').addEventListener('click', async () => {
+  const msg = $('#codeMsg');
+  try { await navigator.clipboard.writeText(codeShown); msg.textContent = 'コピーしました。'; }
+  catch (_) {
+    const r = document.createRange(); r.selectNodeContents($('#codeVal')); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r);
+    msg.textContent = '自動でコピーできませんでした。選択したので、Ctrl+C(スマホは長押し)でコピーしてください。';
+  }
+});
+$('#codeSave').addEventListener('click', () => {
+  const text = `打鍵道場 回復コード\r\nユーザー名: ${codeUser}\r\nコード: ${codeShown}\r\n発行日時: ${new Date().toLocaleString('ja-JP')}\r\n\r\n※ パスワードを忘れたときに使います。他の人には見せないでください。\r\n`;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], {type:'text/plain;charset=utf-8'}));
+  a.download = 'dakendojo-recovery-code.txt'; // 英数字だけ(環境によっては、日本語のファイル名が崩れて拡張子が消えるため)
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  $('#codeMsg').textContent = 'ファイルに保存しました。';
+});
+window.addEventListener('beforeunload', e => { if ($('#codeDlg').open && !$('#codeAck').checked) { e.preventDefault(); e.returnValue = ''; } });
+
+/* ---------- アカウント(記録の保存量・上限の申請・パスワード変更・回復コード) ---------- */
+async function refreshMe(){
+  try {
+    const r = await post('/api/me');
+    if (r.status === 200) { ACC.mustChange = !!r.data.mustChange; ACC.hasRecovery = !!r.data.hasRecovery; if (r.data.quota) setQuota(r.data.quota); renderAcct(); }
+  } catch (_) {}
+}
+const when = t => { const d = new Date(t); return `${d.getMonth() + 1}/${d.getDate()} ${hhmm(t)}`; };
+function renderSettings(){
+  const q = ACC.quota, forced = ACC.mustChange;
+  $('#setTitle').textContent = `アカウント: ${ACC.user || ''}`;
+  $('#setForced').hidden = !forced;
+  $('#setQuota').hidden = forced; $('#setRec').hidden = forced;
+  $('#setClose').disabled = forced;
+  $('#pwCurLbl').textContent = forced ? '仮パスワード(運営から受け取ったもの)' : 'いまのパスワード';
+  $('#pwUser').value = ACC.user || '';
+  $('#rcState').textContent = ACC.hasRecovery
+    ? '回復コードは、登録のときに表示されたものです。なくした・見られてしまった場合は、新しく発行してください(前のコードは使えなくなります)。'
+    : '回復コードがまだありません。発行しておくと、パスワードを忘れたときに自分で再設定できます。';
+  if (!q) { $('#qInfo').textContent = '読み込み中…'; $('#qBar').hidden = true; $('#qState').textContent = ''; $('#qForm').hidden = true; return; }
+  const rq = q.request;
+  $('#qInfo').textContent = `記録 ${fmtN(q.runs)} 件 / 上限 ${q.cap === null ? '無制限' : fmtN(q.cap) + ' 件'}${q.mult > 1 ? `(${q.mult}倍に引き上げ済み)` : ''}`;
+  $('#qBar').hidden = q.cap === null;
+  if (q.cap !== null) { const i = $('#qBar i'); i.style.width = Math.min(100, q.runs / q.cap * 100) + '%'; i.classList.toggle('warn', q.atLimit); }
+  let st = '';
+  if (rq && rq.status === 'pending') st = `📨 上限を上げる申請を送りました(${when(rq.createdAt)})。運営の返事をお待ちください。`;
+  else if (rq && rq.status === 'approved') st = `✅ 申請が承認されました(${when(rq.decidedAt)})。上限が${rq.grantedMult === 0 ? '無制限' : rq.grantedMult + '倍'}になりました。` + (rq.adminNote ? `\n運営から: ${rq.adminNote}` : '');
+  else if (rq && rq.status === 'rejected') st = `申請は承認されませんでした(${when(rq.decidedAt)})。` + (rq.adminNote ? `\n運営から: ${rq.adminNote}` : '');
+  if (q.atLimit && !(rq && rq.status === 'pending')) st += (st ? '\n' : '') + '⚠ 上限に近づいています。上限を超えると、古い記録から消えます。';
+  if (q.mult !== 1) st += (st ? '\n' : '') + 'この端末に残せる記録は最大4万件までです(それより多い分は、クラウドにだけ残ります)。';
+  $('#qState').textContent = st; $('#qState').style.whiteSpace = 'pre-line';
+  $('#qForm').hidden = !(q.atLimit && !(rq && rq.status === 'pending'));
+  if (rq && rq.status !== 'pending' && rq.decidedAt) DB.quotaSeen = Math.max(DB.quotaSeen || 0, rq.decidedAt); saveDB();
+}
+function openSettings(){
+  $('#pwCur').value = ''; $('#pwNew').value = ''; $('#rcPass').value = ''; $('#pwMsg').textContent = ''; $('#rcMsg').textContent = ''; $('#qMsg').textContent = '';
+  validatePw(); renderSettings(); renderAcct();
+  const dlg = $('#setDlg'); if (!dlg.open) { if (dlg.show) dlg.show(); else dlg.setAttribute('open', ''); }
+  if (ACC.mustChange) $('#pwCur').focus();
+}
+function closeSet(){
+  const dlg = $('#setDlg'), a = document.activeElement;
+  if (a && dlg.contains(a)) a.blur();
+  if (dlg.close) dlg.close(); else dlg.removeAttribute('open');
+}
+function validatePw(){
+  const cur = $('#pwCur').value, nw = $('#pwNew').value, pp = passProblem(nw, ACC.user || '');
+  mark($('#pwNew'), $('#pwNewWhy'), pp, nw !== '');
+  $('#pwSubmit').disabled = !(cur !== '' && !pp);
+  $('#rcSubmit').disabled = $('#rcPass').value === '';
+}
+['input', 'change'].forEach(ev => ['#pwCur', '#pwNew', '#rcPass'].forEach(id => $(id).addEventListener(ev, validatePw)));
+$('#setClose').addEventListener('click', () => { if (!ACC.mustChange) closeSet(); });
+$('#setLogout').addEventListener('click', () => logout());
+$('#setDlg').addEventListener('keydown', e => { if (e.key === 'Escape') { e.preventDefault(); if (!ACC.mustChange) closeSet(); } });
+$('#setDlg').addEventListener('close', () => { $('#pwCur').value = ''; $('#pwNew').value = ''; $('#rcPass').value = ''; if (!document.querySelector('dialog[open]')) focusStage(); });
+$('#qSend').addEventListener('click', async () => {
+  const btn = $('#qSend'), msg = $('#qMsg'); btn.disabled = true; msg.textContent = ''; msg.className = 'dlg-msg';
+  try {
+    const r = await post('/api/account', {action:'quota_request', note:$('#qNote').value});
+    if (!r.ok) { msg.textContent = r.data.message || '申請できませんでした。'; if (r.status === 401) { ACC.loggedIn = false; renderAcct(); } return; }
+    $('#qNote').value = ''; if (r.data.quota) setQuota(r.data.quota); renderSettings(); renderAcct();
+  } catch (_) { msg.textContent = '通信に失敗しました。ネットワークを確認してください。'; } finally { btn.disabled = false; }
+});
+$('#pwForm').addEventListener('submit', async e => {
+  e.preventDefault(); validatePw();
+  const btn = $('#pwSubmit'), msg = $('#pwMsg'); if (btn.disabled) return;
+  btn.disabled = true; msg.textContent = ''; msg.className = 'dlg-msg';
+  try {
+    const r = await post('/api/account', {action:'change_password', current:$('#pwCur').value, next:$('#pwNew').value});
+    if (!r.ok) { msg.textContent = r.data.message || '変更できませんでした。'; if (r.status === 401 && r.data.error === 'unauthorized') { ACC.loggedIn = false; renderAcct(); } return; }
+    const wasForced = ACC.mustChange;
+    ACC.mustChange = false; $('#pwCur').value = ''; $('#pwNew').value = '';
+    msg.textContent = 'パスワードを変更しました。'; msg.className = 'dlg-msg ok';
+    if (r.data.recoveryCode) { ACC.hasRecovery = true; showCode(r.data.recoveryCode, 'temp'); }
+    renderSettings(); renderAcct(); syncNow();
+    if (wasForced) closeSet();
+  } catch (_) { msg.textContent = '通信に失敗しました。ネットワークを確認してください。'; } finally { validatePw(); }
+});
+$('#rcForm').addEventListener('submit', async e => {
+  e.preventDefault(); validatePw();
+  const btn = $('#rcSubmit'), msg = $('#rcMsg'); if (btn.disabled) return;
+  btn.disabled = true; msg.textContent = '';
+  try {
+    const r = await post('/api/account', {action:'new_recovery_code', password:$('#rcPass').value});
+    if (!r.ok) { msg.textContent = r.data.message || '発行できませんでした。'; return; }
+    $('#rcPass').value = ''; ACC.hasRecovery = true; renderSettings(); showCode(r.data.recoveryCode, 'regen');
+  } catch (_) { msg.textContent = '通信に失敗しました。ネットワークを確認してください。'; } finally { validatePw(); }
 });
 
 async function initAccount(){
@@ -1470,8 +1757,11 @@ async function initAccount(){
     if (r.status !== 200 && r.status !== 401) return; // APIがない/未設定のときはログイン機能を隠す
     ACC.avail = true;
     if (r.status === 200) {
-      if (adopt(r.data.username)) syncNow();
-      else { try { await post('/api/logout', {}); } catch(_){} }
+      if (adopt(r.data.username)) {
+        ACC.mustChange = !!r.data.mustChange; ACC.hasRecovery = !!r.data.hasRecovery;
+        if (r.data.quota) setQuota(r.data.quota);
+        if (ACC.mustChange) openSettings(); else syncNow();
+      } else { try { await post('/api/logout', {}); } catch(_){} }
     }
     renderAcct();
   } catch (_) {

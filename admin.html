@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>打鍵道場 管理画面</title>
+<style>
+:root{--bg:#e8ecf0;--panel:#fbfcfd;--ink:#17212c;--muted:#5a6776;--line:#cdd5de;--accent:#3346c9;--accent-soft:#dde2fb;--on-accent:#fff;--ok:#1d8556;--bad:#c3372c;--warn:#b26a00}
+@media (prefers-color-scheme: dark){:root{--bg:#0f141b;--panel:#171e28;--ink:#e5eaf0;--muted:#94a1b1;--line:#2b3644;--accent:#8b98ff;--accent-soft:#262f5a;--on-accent:#0f141b;--ok:#4fc58d;--bad:#ff6f61;--warn:#f0a53a}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.6 "Zen Kaku Gothic New","Hiragana Sans","Yu Gothic UI","Meiryo",sans-serif}
+.wrap{max-width:900px;margin:0 auto;padding:20px 16px 60px}
+h1{font-size:22px;margin:0 0 4px}h2{font-size:17px;margin:0 0 10px}
+.muted{color:var(--muted);font-size:13px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin:12px 0}
+.row{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center}
+.btn{font:inherit;font-size:14px;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:8px;padding:7px 14px;cursor:pointer}
+.btn:hover{border-color:var(--accent)}.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:700}
+.btn.danger{color:var(--bad);border-color:var(--bad)}.btn:disabled{opacity:.45;cursor:not-allowed}
+input,select,textarea{font:inherit;font-size:15px;color:var(--ink);background:var(--bg);border:2px solid var(--line);border-radius:8px;padding:6px 9px}
+input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+textarea{width:100%;resize:vertical}
+.tabs{display:flex;flex-wrap:wrap;gap:4px;margin:14px 0 6px}
+.tabs button{font:inherit;border:1px solid var(--line);background:var(--panel);color:var(--muted);border-radius:8px;padding:6px 14px;cursor:pointer}
+.tabs button[aria-selected=true]{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:700}
+.badge{display:inline-block;min-width:1.5em;text-align:center;border-radius:999px;background:var(--bad);color:#fff;font-size:12px;padding:0 6px;margin-left:6px}
+.stats{display:flex;flex-wrap:wrap;gap:6px 22px}.stats b{font-size:20px;font-variant-numeric:tabular-nums}
+.kv{display:grid;grid-template-columns:max-content 1fr;gap:2px 14px;font-size:14px;margin:8px 0}.kv dt{color:var(--muted)}.kv dd{margin:0;white-space:pre-wrap;word-break:break-word}
+.tag{font-size:12px;border-radius:999px;padding:1px 9px;border:1px solid var(--line)}
+.tag.pending{border-color:var(--warn);color:var(--warn)}.tag.approved,.tag.issued{border-color:var(--ok);color:var(--ok)}.tag.rejected{border-color:var(--bad);color:var(--bad)}
+.warn{background:color-mix(in oklab,var(--warn) 14%,var(--panel));border:2px solid var(--warn);border-radius:10px;padding:10px 12px;font-size:13.5px}
+.msg{min-height:1.4em;font-size:14px}.msg.err{color:var(--bad)}.msg.ok{color:var(--ok);font-weight:700}
+.temp{font:600 24px/1.4 ui-monospace,Menlo,Consolas,monospace;letter-spacing:.08em;background:var(--accent-soft);border:2px dashed var(--accent);border-radius:10px;padding:12px;text-align:center;user-select:all;word-break:break-all}
+table{border-collapse:collapse;width:100%;font-size:14px}th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line)}th{color:var(--muted);font-weight:400;font-size:12px}
+.sp{height:8px}[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>打鍵道場 管理画面</h1>
+  <p class="muted">運営用です。URLとトークンは、他の人に教えないでください。</p>
+
+  <section id="login" class="card">
+    <h2>ログイン</h2>
+    <form id="loginForm" class="row" autocomplete="off">
+      <input type="password" id="token" placeholder="管理用トークン(ADMIN_TOKEN)" autocomplete="off" style="flex:1;min-width:240px">
+      <button class="btn primary" type="submit" id="loginBtn">開く</button>
+    </form>
+    <div class="msg err" id="loginMsg" role="alert"></div>
+  </section>
+
+  <main id="main" hidden>
+    <div class="card">
+      <div class="row" style="justify-content:space-between">
+        <div class="stats" id="stats"></div>
+        <div class="row"><button class="btn" id="refresh">更新</button><button class="btn" id="logout">ログアウト</button></div>
+      </div>
+    </div>
+    <div class="tabs" role="tablist" id="tabs">
+      <button role="tab" data-t="quota" aria-selected="true">上限の申請<span class="badge" id="bQuota" hidden>0</span></button>
+      <button role="tab" data-t="reset" aria-selected="false">パスワード再発行<span class="badge" id="bReset" hidden>0</span></button>
+      <button role="tab" data-t="users" aria-selected="false">ユーザー</button>
+    </div>
+
+    <section id="tab-quota">
+      <label class="muted"><input type="checkbox" id="quotaAll"> 処理済みも表示</label>
+      <div id="quotaList"></div>
+    </section>
+
+    <section id="tab-reset" hidden>
+      <div class="warn">仮パスワードの発行は、<b>普段から対応するものではありません</b>。メールを使わないので、本人かどうかを確かめる方法が限られます。確認できないときは、拒否してください(なりすましの可能性があります)。発行すると、そのユーザーの<b>いまのログインはすべて切れ</b>、いまのパスワードは使えなくなります。</div>
+      <label class="muted"><input type="checkbox" id="resetAll"> 処理済みも表示</label>
+      <div id="resetList"></div>
+    </section>
+
+    <section id="tab-users" hidden>
+      <div class="row card"><input type="search" id="userQ" placeholder="ユーザー名で検索" style="flex:1;min-width:200px"><button class="btn" id="userSearch">検索</button></div>
+      <div class="card" style="overflow-x:auto"><table id="userTbl"></table></div>
+    </section>
+    <div class="msg" id="gmsg" role="status"></div>
+  </main>
+</div>
+
+<div id="tempBox" class="card" hidden style="position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(92vw,460px);z-index:10;box-shadow:0 0 0 100vmax rgba(10,16,24,.55)" role="dialog" aria-label="仮パスワード">
+  <h2>仮パスワードを発行しました</h2>
+  <p class="muted" id="tempWho"></p>
+  <div class="temp" id="tempVal"></div>
+  <p class="warn" style="margin-top:10px">この画面を閉じると、<b>二度と表示できません</b>。本人に、直接(会って・Discordなど)伝えてください。本人は、ログインしたあと、すぐ新しいパスワードに変える必要があります。</p>
+  <div class="row" style="justify-content:flex-end"><button class="btn" id="tempCopy">コピー</button><button class="btn primary" id="tempClose">閉じる</button></div>
+</div>
+
+<script>
+(function(){
+const $ = s => document.querySelector(s);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmtN = n => Number(n).toLocaleString('en-US');
+const when = t => { if (t == null) return '(なし)'; const d = new Date(Number(t)); const z = n => String(n).padStart(2, '0'); return `${d.getFullYear()}/${z(d.getMonth()+1)}/${z(d.getDate())} ${z(d.getHours())}:${z(d.getMinutes())}`; };
+// トークンは、このタブにだけ残す(閉じると消える)。localStorage には入れない
+let TOKEN = ''; try { TOKEN = sessionStorage.getItem('dkd-admin') || ''; } catch (_) {}
+let BASE = 20000, tab = 'quota', timer = 0;
+
+async function api(action, extra){
+  const r = await fetch('/api/admin', {method:'POST', headers:{'Content-Type':'application/json', Authorization:'Bearer ' + TOKEN}, body:JSON.stringify(Object.assign({action}, extra))});
+  let data = {}; try { data = await r.json(); } catch (_) {}
+  if (r.status === 401 && $('#main').hidden === false) { signOut('トークンが違うか、期限が切れました。'); }
+  return {ok:r.ok, status:r.status, data};
+}
+function signOut(msg){
+  TOKEN = ''; try { sessionStorage.removeItem('dkd-admin'); } catch (_) {}
+  clearInterval(timer); $('#main').hidden = true; $('#login').hidden = false; $('#token').value = ''; $('#loginMsg').textContent = msg || '';
+  document.title = '打鍵道場 管理画面';
+}
+function say(text, ok){ const m = $('#gmsg'); m.textContent = text; m.className = 'msg ' + (ok ? 'ok' : 'err'); }
+
+$('#loginForm').addEventListener('submit', async e => {
+  e.preventDefault(); TOKEN = $('#token').value.trim(); if (!TOKEN) return;
+  $('#loginBtn').disabled = true; $('#loginMsg').textContent = '';
+  try {
+    const r = await api('overview');
+    if (r.status === 401) { $('#loginMsg').textContent = 'トークンが違います。'; TOKEN = ''; }
+    else if (r.status === 429) { $('#loginMsg').textContent = '失敗が続いたため、一時的にロックされています。しばらく待ってください。'; TOKEN = ''; }
+    else if (r.status === 503) { $('#loginMsg').textContent = 'サーバーの設定がまだ終わっていません(環境変数 ADMIN_TOKEN は、32文字以上が必要です)。'; TOKEN = ''; }
+    else if (!r.ok) { $('#loginMsg').textContent = 'うまくいきませんでした。'; TOKEN = ''; }
+    else { try { sessionStorage.setItem('dkd-admin', TOKEN); } catch (_) {} enter(r.data); }
+  } catch (_) { $('#loginMsg').textContent = '通信に失敗しました。'; TOKEN = ''; }
+  finally { $('#loginBtn').disabled = false; $('#token').value = ''; }
+});
+function enter(ov){ $('#login').hidden = true; $('#main').hidden = false; applyOverview(ov); loadTab(); clearInterval(timer); timer = setInterval(refreshOverview, 60000); }
+function applyOverview(o){
+  BASE = o.baseCap || BASE;
+  $('#stats').innerHTML = `<span>ユーザー <b>${fmtN(o.users)}</b></span><span>上限の申請 <b>${o.pendingQuota}</b></span><span>再発行の申請 <b>${o.pendingReset}</b></span><span>DB容量 <b>${(o.dbBytes / 1048576).toFixed(1)}</b> MB</span>`;
+  for (const [id, n] of [['#bQuota', o.pendingQuota], ['#bReset', o.pendingReset]]) { $(id).hidden = !n; $(id).textContent = n; }
+  const n = o.pendingQuota + o.pendingReset; document.title = (n ? `(${n}) ` : '') + '打鍵道場 管理画面';
+}
+async function refreshOverview(){ const r = await api('overview'); if (r.ok) applyOverview(r.data); }
+$('#refresh').addEventListener('click', () => { refreshOverview(); loadTab(); });
+$('#logout').addEventListener('click', () => signOut(''));
+$('#tabs').addEventListener('click', e => { const b = e.target.closest('button[data-t]'); if (!b) return; tab = b.dataset.t; document.querySelectorAll('#tabs button').forEach(x => x.setAttribute('aria-selected', String(x === b))); ['quota','reset','users'].forEach(t => { $('#tab-' + t).hidden = t !== tab; }); loadTab(); });
+$('#quotaAll').addEventListener('change', loadTab); $('#resetAll').addEventListener('change', loadTab);
+$('#userSearch').addEventListener('click', loadTab); $('#userQ').addEventListener('keydown', e => { if (e.key === 'Enter') loadTab(); });
+function loadTab(){ say('', true); if (tab === 'quota') return loadQuota(); if (tab === 'reset') return loadReset(); return loadUsers(); }
+
+const statusLabel = {pending:'未処理', approved:'承認', rejected:'拒否', issued:'発行済み'};
+const tag = s => `<span class="tag ${esc(s)}">${esc(statusLabel[s] || s)}</span>`;
+
+async function loadQuota(){
+  const r = await api('list_quota', {status: $('#quotaAll').checked ? 'all' : 'pending'}); if (!r.ok) return say('読み込めませんでした。', false);
+  const box = $('#quotaList');
+  if (!r.data.items.length) { box.innerHTML = '<div class="card muted">未処理の申請は、ありません。</div>'; return; }
+  box.innerHTML = r.data.items.map(it => `<div class="card" data-id="${it.id}">
+    <div class="row"><b style="font-size:17px">${esc(it.username)}</b>${tag(it.status)}<span class="muted">${esc(when(it.createdAt))}</span></div>
+    <dl class="kv"><dt>記録の件数</dt><dd>申請時 ${fmtN(it.runsAtRequest)} 件 / いま ${fmtN(it.runsNow)} 件</dd>
+      <dt>いまの上限</dt><dd>${it.currentMult === 0 ? '無制限' : fmtN(BASE * it.currentMult) + ' 件(' + it.currentMult + '倍)'}</dd>
+      <dt>最後のアクセス</dt><dd>${esc(when(it.lastSeen))}</dd>
+      <dt>本人の備考</dt><dd>${esc(it.note) || '(なし)'}</dd>
+      ${it.status === 'pending' ? '' : `<dt>結果</dt><dd>${esc(when(it.decidedAt))}${it.status === 'approved' ? ' / 上限を' + (it.grantedMult === 0 ? '無制限' : it.grantedMult + '倍') + 'に' : ''}\n運営の返信: ${esc(it.adminNote) || '(なし)'}</dd>`}</dl>
+    ${it.status !== 'pending' ? '' : `<div class="row"><label>引き上げ幅
+        <select class="mult"><option value="2">2倍(${fmtN(BASE * 2)}件)</option><option value="5">5倍(${fmtN(BASE * 5)}件)</option><option value="0">無制限</option></select></label></div>
+      <div class="sp"></div><textarea class="dnote" rows="2" maxlength="300" placeholder="返信のメモ(任意・300文字まで。申請した本人に表示されます)"></textarea>
+      <div class="sp"></div><div class="row"><button class="btn primary act" data-d="approve">承認する</button><button class="btn danger act" data-d="reject">拒否する</button></div>`}
+  </div>`).join('');
+}
+$('#quotaList').addEventListener('click', async e => {
+  const b = e.target.closest('button.act'); if (!b) return; const card = b.closest('.card'); const id = Number(card.dataset.id);
+  const d = b.dataset.d, note = card.querySelector('.dnote').value, mult = Number(card.querySelector('.mult').value);
+  const name = card.querySelector('b').textContent;
+  if (!confirm(d === 'approve' ? `「${name}」の上限を ${mult === 0 ? '無制限' : mult + '倍'} にします。よろしいですか?` : `「${name}」の申請を拒否します。よろしいですか?`)) return;
+  card.querySelectorAll('button').forEach(x => { x.disabled = true; });
+  const r = await api('decide_quota', {id, decision:d, mult, note});
+  if (r.ok) { say(d === 'approve' ? `承認しました(${name})。` : `拒否しました(${name})。`, true); } else say(r.data.message || '処理できませんでした。', false);
+  refreshOverview(); loadQuota();
+});
+
+async function loadReset(){
+  const r = await api('list_reset', {status: $('#resetAll').checked ? 'all' : 'pending'}); if (!r.ok) return say('読み込めませんでした。', false);
+  const box = $('#resetList');
+  if (!r.data.items.length) { box.innerHTML = '<div class="card muted">未処理の申請は、ありません。</div>'; return; }
+  box.innerHTML = r.data.items.map(it => `<div class="card" data-id="${it.id}">
+    <div class="row"><b style="font-size:17px">${esc(it.username)}</b>${tag(it.status)}<span class="muted">${esc(when(it.createdAt))}</span></div>
+    <dl class="kv"><dt>アカウントの作成</dt><dd>${esc(when(it.userCreated))}</dd><dt>最後のアクセス</dt><dd>${esc(when(it.lastSeen))}</dd><dt>記録の件数</dt><dd>${fmtN(it.runs)} 件</dd>
+      <dt>本人確認・連絡のための情報</dt><dd>${esc(it.note)}</dd>
+      ${it.status === 'pending' ? '' : `<dt>結果</dt><dd>${esc(when(it.decidedAt))}\n運営のメモ: ${esc(it.adminNote) || '(なし)'}</dd>`}</dl>
+    ${it.status !== 'pending' ? '' : `<textarea class="dnote" rows="2" maxlength="300" placeholder="運営のメモ(任意。記録として残ります)"></textarea>
+      <div class="sp"></div><div class="row"><button class="btn primary act" data-d="issue">仮パスワードを発行する</button><button class="btn danger act" data-d="reject">拒否する</button></div>`}
+  </div>`).join('');
+}
+$('#resetList').addEventListener('click', async e => {
+  const b = e.target.closest('button.act'); if (!b) return; const card = b.closest('.card'); const id = Number(card.dataset.id);
+  const d = b.dataset.d, note = card.querySelector('.dnote').value, name = card.querySelector('b').textContent;
+  if (!confirm(d === 'issue' ? `「${name}」に仮パスワードを発行します。\n本人のいまのログインはすべて切れ、いまのパスワードは使えなくなります。\n本人確認はできていますか?` : `「${name}」の申請を拒否します。よろしいですか?`)) return;
+  card.querySelectorAll('button').forEach(x => { x.disabled = true; });
+  const r = await api('decide_reset', {id, decision:d, note});
+  if (!r.ok) { say(r.data.message || '処理できませんでした。', false); }
+  else if (d === 'issue') { $('#tempWho').textContent = `ユーザー: ${r.data.username}`; $('#tempVal').textContent = r.data.tempPassword; $('#tempBox').hidden = false; say('', true); }
+  else say(`拒否しました(${name})。`, true);
+  refreshOverview(); loadReset();
+});
+$('#tempClose').addEventListener('click', () => { $('#tempBox').hidden = true; $('#tempVal').textContent = ''; $('#tempWho').textContent = ''; });
+$('#tempCopy').addEventListener('click', async () => {
+  try { await navigator.clipboard.writeText($('#tempVal').textContent); say('コピーしました。', true); }
+  catch (_) { const r = document.createRange(); r.selectNodeContents($('#tempVal')); const s = getSelection(); s.removeAllRanges(); s.addRange(r); say('選択しました。Ctrl+C でコピーしてください。', true); }
+});
+
+async function loadUsers(){
+  const r = await api('list_users', {q: $('#userQ').value}); if (!r.ok) return say('読み込めませんでした。', false);
+  $('#userTbl').innerHTML = '<tr><th>ユーザー名</th><th>作成</th><th>最後のアクセス</th><th>記録</th><th>上限</th><th></th></tr>' + (r.data.items.length ? r.data.items.map(u =>
+    `<tr><td>${esc(u.username)}${u.mustChange ? ' <span class="tag pending">仮パスワード中</span>' : ''}</td><td>${esc(when(u.createdAt))}</td><td>${esc(when(u.lastSeen))}</td><td>${fmtN(u.runs)}</td><td>${u.mult === 0 ? '無制限' : u.mult + '倍'}</td>
+     <td><button class="btn danger del" data-u="${esc(u.username)}">削除</button></td></tr>`).join('') : '<tr><td colspan="6" class="muted">該当するユーザーはいません。</td></tr>');
+}
+$('#userTbl').addEventListener('click', async e => {
+  const b = e.target.closest('button.del'); if (!b) return; const name = b.dataset.u;
+  const typed = prompt(`「${name}」を削除します。記録もすべて消え、元に戻せません。\n確認のため、ユーザー名を入力してください。`);
+  if (typed === null) return;
+  const r = await api('delete_user', {username:name, confirm:typed});
+  say(r.ok ? `削除しました(${name})。` : (r.data.message || '削除できませんでした。'), r.ok);
+  refreshOverview(); loadUsers();
+});
+
+if (TOKEN) { api('overview').then(r => { if (r.ok) enter(r.data); else signOut(''); }).catch(() => signOut('')); }
+})();
+</script>
+</body>
+</html>

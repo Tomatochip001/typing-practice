@@ -5,6 +5,7 @@ const { api, send, clientIp } = require('./_lib/http');
 const A = require('./_lib/auth');
 const R = require('./_lib/ratelimit');
 const { cleanText } = require('./_lib/text');
+const C = require('./_lib/config');
 
 const FAIL_WINDOW = 15 * 60 * 1000, MAX_FAILS = 10;
 
@@ -36,7 +37,7 @@ module.exports = api('POST', async (req, res, body) => {
       const [q] = await sql`SELECT count(*)::int AS n FROM quota_requests WHERE status = 'pending'`;
       const [r] = await sql`SELECT count(*)::int AS n FROM reset_requests WHERE status = 'pending'`;
       const [d] = await sql`SELECT pg_database_size(current_database())::bigint AS bytes`;
-      return send(res, 200, { users: u.n, pendingQuota: q.n, pendingReset: r.n, dbBytes: Number(d.bytes) });
+      return send(res, 200, { users: u.n, pendingQuota: q.n, pendingReset: r.n, dbBytes: Number(d.bytes), baseCap: C.baseRunsCap() });
     }
 
     case 'list_quota': {
