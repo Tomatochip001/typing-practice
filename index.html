@@ -1399,6 +1399,7 @@ async function showCaptcha(){
 }
 function setAuthMode(k){
   ACC.mode = k;
+  { const a = document.activeElement; if (a && a.tagName === 'INPUT' && $('#authDlg').contains(a)) a.blur(); }
   document.querySelectorAll('#authDlg .seg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.k === k)));
   $('#authTitle').textContent = k === 'login' ? 'ログイン' : '新規登録';
   $('#auSubmit').textContent = k === 'login' ? 'ログイン' : '登録してログイン';
@@ -1414,7 +1415,19 @@ function openAuth(){
   const dlg = $('#authDlg'); if (dlg.show) dlg.show(); else dlg.setAttribute('open', '');
   $('#auUser').focus();
 }
-function closeAuth(){ const dlg = $('#authDlg'); if (dlg.close) dlg.close(); else dlg.removeAttribute('open'); }
+function closeAuth(){
+  const dlg = $('#authDlg'), a = document.activeElement;
+  if (a && dlg.contains(a)) a.blur(); // フォーカスを外して、パスワード管理の拡張機能の表示を片付けさせる
+  if (dlg.close) dlg.close(); else dlg.removeAttribute('open');
+}
+/* ダイアログの外(ゲーム画面など自分のページ)を押したら閉じる。
+   閉じると入力欄が画面から消えるので、拡張機能(iCloudパスワード等)のオーバーレイが残らない。
+   拡張機能が body に重ねるUIは .wrap の外にあるので対象外(押しても閉じない=自動入力の有効化ボタンが押せる) */
+document.addEventListener('pointerdown', e => {
+  const dlg = $('#authDlg'), t = e.target;
+  if (!dlg.open || !(t instanceof Element) || dlg.contains(t)) return;
+  if (t.closest('.wrap') || t === document.body || t === document.documentElement) closeAuth();
+}, true);
 document.querySelectorAll('#authDlg .seg button').forEach(b => b.addEventListener('click', () => setAuthMode(b.dataset.k)));
 $('#auShow').addEventListener('change', e => { $('#auPass').type = e.target.checked ? 'text' : 'password'; });
 $('#auCancel').addEventListener('click', closeAuth);
