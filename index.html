@@ -1305,7 +1305,7 @@ const AUTH_NOTE = {
   register: 'ユーザー名: 半角英数字と _ - . で3〜20文字。パスワード: 8文字以上で、英字・数字・記号のうち2種類以上を混ぜてください。他のサービスと同じパスワードは使わないでください。メールアドレスは使わないので、パスワードを忘れると復旧できません(新しく作り直しになります)。'
 };
 /* Cloudflare Turnstile(新規登録のときだけ読み込む。ログインでは使わない) */
-const TURNSTILE_SITE_KEY = ''; // Cloudflare Turnstile のサイトキー(公開してよい値)
+const TURNSTILE_SITE_KEY = '0x4AAAAAAFM0H0wgv_eWm7AX'; // Cloudflare Turnstile のサイトキー(公開してよい値)
 let cfScript = null, cfWidget = null;
 ACC.cf = '';
 function captchaUpdate(){ $('#auSubmit').disabled = ACC.mode === 'register' && !ACC.cf; }
