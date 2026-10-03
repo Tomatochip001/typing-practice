@@ -60,6 +60,10 @@ select{font:inherit;font-size:14px;color:var(--ink);background:var(--panel);bord
 .btn{font:inherit;font-size:14px;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:8px;padding:7px 14px;cursor:pointer}
 .btn:hover{border-color:var(--accent)}
 .btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:700}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn:disabled:hover{border-color:var(--line)}
+/* 条件を満たすまで、主ボタンは青くしない(灰色) */
+.btn.primary:disabled,.btn.primary:disabled:hover{background:var(--line);border-color:var(--line);color:var(--muted);opacity:1}
 .btn.danger{color:var(--bad)}
 #customBox{display:flex;flex-direction:column;gap:8px}
 #customText{font-family:var(--f-mono);font-size:14px;width:100%;min-height:130px;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--ink);resize:vertical}
@@ -151,6 +155,11 @@ dialog h2{margin:0 0 12px;font-size:18px}
 .fld{display:flex;flex-direction:column;gap:4px;margin-bottom:12px;font-size:13px;color:var(--muted)}
 .fld input[type=text],.fld input[type=password]{font:inherit;font-size:16px;font-family:var(--f-mono);padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink)}
 .fld input:focus{outline:2px solid var(--accent);outline-offset:1px}
+.fld input.valid{border-color:var(--ok)}
+.fld input.invalid{border-color:var(--bad)}
+.fld .why{font-size:12px;color:var(--bad);min-height:0}
+.fld .why:empty{display:none}
+.captcha{min-height:65px;margin-bottom:10px}
 .dlg-msg{min-height:1.4em;font-size:13px;color:var(--bad);margin:2px 0 10px}
 .dlg-note{font-size:12px;color:var(--muted);margin:0 0 14px;line-height:1.55}
 @media (max-width:520px){.jp-text{font-size:22px}.big{font-size:52px}.code{font-size:15px}}
@@ -262,9 +271,10 @@ dialog h2{margin:0 0 12px;font-size:18px}
       <button type="button" data-k="login" aria-pressed="true">ログイン</button>
       <button type="button" data-k="register" aria-pressed="false">新規登録</button>
     </div>
-    <label class="fld">ユーザー名<input type="text" id="auUser" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="20" required></label>
-    <label class="fld">パスワード<input type="password" id="auPass" name="password" autocomplete="current-password" maxlength="128" required></label>
+    <label class="fld">ユーザー名<input type="text" id="auUser" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="60" required><span class="why" id="auUserWhy" aria-live="polite"></span></label>
+    <label class="fld">パスワード<input type="password" id="auPass" name="password" autocomplete="current-password" maxlength="128" required><span class="why" id="auPassWhy" aria-live="polite"></span></label>
     <label class="chk" style="margin-bottom:10px;font-size:13px"><input type="checkbox" id="auShow"> パスワードを表示</label>
+    <div class="captcha" id="auCaptcha" hidden></div>
     <p class="dlg-note" id="auNote"></p>
     <div class="dlg-msg" id="auMsg" role="alert"></div>
     <div class="btns" style="justify-content:flex-end">
@@ -1236,6 +1246,7 @@ function syncNow(){
       if (view === 'rec') renderRecords();
     } catch (e) {
       if (e.status === 401) { ACC.loggedIn = false; ACC.err = 'ログインの期限が切れました。もう一度ログインしてください。'; }
+      else if (e.status === 429) { ACC.err = '同期の回数が多すぎます。少し待ってから自動で再試行します。'; scheduleSync(65000); }
       else ACC.err = '同期できませんでした。通信が戻ったら自動で再送します。';
     } finally {
       ACC.syncing = false; syncPromise = null; renderAcct();
@@ -1299,8 +1310,93 @@ async function logout(){
 /* ログイン画面 */
 const AUTH_NOTE = {
   login: '',
-  register: 'ユーザー名: 半角英数字と _ - . で3〜20文字。パスワード: 8文字以上で、英字・数字・記号のうち2種類以上を混ぜてください。他のサービスと同じパスワードは使わないでください。メールアドレスは使わないので、パスワードを忘れると復旧できません(新しく作り直しになります)。'
+  register: 'ユーザー名: 1〜30文字で、日本語・絵文字・記号・スペースなど、どんな文字でも使えます(大文字小文字と全角半角は区別されません)。パスワード: 8文字以上で、英字・数字・記号のうち2種類以上を混ぜてください。他のサービスと同じパスワードは使わないでください。メールアドレスは使わないので、パスワードを忘れると復旧できません(新しく作り直しになります)。'
 };
+/* Cloudflare Turnstile(新規登録のときだけ読み込む。ログインでは使わない) */
+const TURNSTILE_SITE_KEY = '0x4AAAAAAFM0H0wgv_eWm7AX'; // Cloudflare Turnstile のサイトキー(公開してよい値)
+let cfScript = null, cfWidget = null;
+ACC.cf = '';
+/* 入力チェック(サーバー api/_lib/auth.js の checkUsername / checkPassword と同じ規則) */
+const WEAK_PW = new Set(['password', 'password1', '12345678', '123456789', 'qwertyui', 'qwerty123', 'abcd1234', 'iloveyou', '11111111', 'asdfghjk']);
+// ユーザー名: どんな文字でも可(サーバーの api/_lib/auth.js の normUsername / checkUsername と同じ規則)
+const HIDDEN_CH = /[\p{Cc}\p{Cs}\p{Co}\u00AD\u034F\u061C\u115F\u1160\u17B4\u17B5\u180B-\u180E\u200B\u200C\u200E\u200F\u2028-\u202E\u2060-\u206F\u3164\uFEFF\uFFA0\uFFF9-\uFFFB]/u;
+const normUser = t => t.normalize('NFKC').replace(/\s+/g, ' ').trim().toLowerCase().normalize('NFKC');
+function userProblem(raw){
+  const u = normUser(raw), len = Array.from(u).length;
+  if (len < 1) return 'ユーザー名を入力してください';
+  if (len > 30) return `30文字以内にしてください(いま${len}文字)`;
+  if (HIDDEN_CH.test(u)) return '表示されない文字や制御文字は使えません';
+  return '';
+}
+function passProblem(pw, userRaw){
+  if (pw.length < 8) return `8文字以上にしてください(いま${pw.length}文字)`;
+  if (pw.length > 128) return '128文字以内にしてください';
+  const kinds = [/[A-Za-z]/.test(pw), /[0-9]/.test(pw), /[^A-Za-z0-9\s]/.test(pw)].filter(Boolean).length;
+  if (kinds < 2) return '英字・数字・記号のうち2種類以上を混ぜてください';
+  if (WEAK_PW.has(pw.toLowerCase())) return '推測されやすいパスワードです';
+  if (normUser(pw) === normUser(userRaw)) return 'ユーザー名と同じにはできません';
+  return '';
+}
+function mark(input, why, problem, touched){
+  input.classList.toggle('valid', touched && !problem);
+  input.classList.toggle('invalid', touched && !!problem);
+  input.setAttribute('aria-invalid', String(touched && !!problem));
+  why.textContent = touched ? problem : '';
+}
+function validateAuth(){
+  const u = $('#auUser').value, p = $('#auPass').value;
+  if (ACC.mode === 'register') {
+    const up = userProblem(u), pp = passProblem(p, u);
+    mark($('#auUser'), $('#auUserWhy'), up, u !== '');
+    mark($('#auPass'), $('#auPassWhy'), pp, p !== '');
+    ACC.valid = !up && !pp;
+  } else {
+    mark($('#auUser'), $('#auUserWhy'), '', false);
+    mark($('#auPass'), $('#auPassWhy'), '', false);
+    ACC.valid = u.trim() !== '' && p !== '';
+  }
+  captchaUpdate();
+}
+ACC.valid = false;
+// 登録: 入力が条件に合い、人間確認も済んでいるときだけボタンを有効(青)にする
+function captchaUpdate(){ $('#auSubmit').disabled = !ACC.valid || (ACC.mode === 'register' && !ACC.cf); }
+function loadTurnstile(){
+  if (window.turnstile) return Promise.resolve(window.turnstile);
+  if (cfScript) return cfScript;
+  cfScript = new Promise((resolve, reject) => {
+    const el = document.createElement('script');
+    el.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+    el.async = true;
+    el.onload = () => window.turnstile ? resolve(window.turnstile) : reject(new Error('turnstile missing'));
+    el.onerror = () => { cfScript = null; reject(new Error('load failed')); };
+    document.head.appendChild(el);
+  });
+  return cfScript;
+}
+function resetCaptcha(){
+  ACC.cf = '';
+  if (window.turnstile && cfWidget !== null) { try { window.turnstile.reset(cfWidget); } catch(_) {} }
+  captchaUpdate();
+}
+async function showCaptcha(){
+  const box = $('#auCaptcha'), msg = $('#auMsg');
+  box.hidden = false; captchaUpdate();
+  if (!TURNSTILE_SITE_KEY) { msg.textContent = '新規登録は準備中です(ボット対策の設定待ち)。'; return; }
+  try {
+    const ts = await loadTurnstile();
+    if (ACC.mode !== 'register') return;
+    if (cfWidget === null) {
+      cfWidget = ts.render(box, {
+        sitekey: TURNSTILE_SITE_KEY, language: 'ja',
+        callback: tok => { ACC.cf = tok; $('#auMsg').textContent = ''; captchaUpdate(); },
+        'expired-callback': () => { ACC.cf = ''; captchaUpdate(); },
+        'error-callback': () => { ACC.cf = ''; captchaUpdate(); $('#auMsg').textContent = 'ボット対策の確認でエラーが出ました。ページを再読み込みして、もう一度お試しください。'; }
+      });
+    } else resetCaptcha();
+  } catch (_) {
+    msg.textContent = 'ボット対策の読み込みに失敗しました。広告ブロッカーなどを確認して、もう一度お試しください。';
+  }
+}
 function setAuthMode(k){
   ACC.mode = k;
   document.querySelectorAll('#authDlg .seg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.k === k)));
@@ -1309,9 +1405,12 @@ function setAuthMode(k){
   $('#auPass').autocomplete = k === 'login' ? 'current-password' : 'new-password';
   $('#auNote').textContent = AUTH_NOTE[k]; $('#auNote').hidden = !AUTH_NOTE[k];
   $('#auMsg').textContent = '';
+  if (k === 'register') showCaptcha(); else $('#auCaptcha').hidden = true;
+  validateAuth();
 }
 function openAuth(){
-  setAuthMode('login'); $('#auPass').value = ''; $('#auShow').checked = false; $('#auPass').type = 'password';
+  $('#auUser').value = ''; $('#auPass').value = ''; $('#auShow').checked = false; $('#auPass').type = 'password';
+  setAuthMode('login');
   const dlg = $('#authDlg'); if (dlg.show) dlg.show(); else dlg.setAttribute('open', '');
   $('#auUser').focus();
 }
@@ -1320,13 +1419,20 @@ document.querySelectorAll('#authDlg .seg button').forEach(b => b.addEventListene
 $('#auShow').addEventListener('change', e => { $('#auPass').type = e.target.checked ? 'text' : 'password'; });
 $('#auCancel').addEventListener('click', closeAuth);
 $('#authDlg').addEventListener('keydown', e => { if (e.key === 'Escape') { e.preventDefault(); closeAuth(); } });
-$('#authDlg').addEventListener('close', () => { $('#auPass').value = ''; focusStage(); });
+$('#authDlg').addEventListener('close', () => { $('#auPass').value = ''; validateAuth(); focusStage(); });
+['input', 'change'].forEach(ev => { $('#auUser').addEventListener(ev, validateAuth); $('#auPass').addEventListener(ev, validateAuth); });
 $('#authForm').addEventListener('submit', async e => {
   e.preventDefault();
   const btn = $('#auSubmit'), msg = $('#auMsg');
+  validateAuth();
+  if (btn.disabled) return; // 条件に合わない入力は送らない(ウィジェットもやり直さない)
   btn.disabled = true; msg.textContent = '';
+  let spent = false; // 人間確認のトークンを使い切ったか(使い切ったときだけウィジェットをやり直す)
   try {
-    const r = await post('/api/' + ACC.mode, {username:$('#auUser').value, password:$('#auPass').value});
+    const payload = {username:$('#auUser').value, password:$('#auPass').value};
+    if (ACC.mode === 'register') payload.turnstile = ACC.cf;
+    const r = await post('/api/' + ACC.mode, payload);
+    spent = r.ok || ['captcha', 'captcha_unavailable', 'taken'].includes(r.data.error);
     if (!r.ok) {
       msg.textContent = r.data.message || (r.status === 503 ? 'サーバーの設定がまだ終わっていません。' : 'うまくいきませんでした。もう一度お試しください。');
       return;
@@ -1334,8 +1440,9 @@ $('#authForm').addEventListener('submit', async e => {
     if (!adopt(r.data.username)) { try { await post('/api/logout', {}); } catch(_){} ACC.loggedIn = false; msg.textContent = 'ログインを取り消しました。'; return; }
     closeAuth(); renderAcct(); syncNow();
   } catch (_) {
+    spent = true; // 通信の途中で失敗したときは、使われたかどうか分からないのでやり直す
     msg.textContent = '通信に失敗しました。ネットワークを確認してください。';
-  } finally { btn.disabled = false; }
+  } finally { if (ACC.mode === 'register' && spent) resetCaptcha(); btn.disabled = false; captchaUpdate(); }
 });
 
 async function initAccount(){

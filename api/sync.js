@@ -4,34 +4,55 @@
 const { db } = require('./_lib/db');
 const { api, send } = require('./_lib/http');
 const A = require('./_lib/auth');
+const C = require('./_lib/config');
+const R = require('./_lib/ratelimit');
 
-const MAX_RUNS_IN = 20000, PAGE = 20000, MAX_KEYS = 200, MAX_PREFS_BYTES = 150 * 1024;
+const MAX_RUNS_IN = 5000, PAGE = 20000;
+const MAX_RUNS_TOTAL = 20000, MAX_KEYS = 200, MAX_PREFS_BYTES = 64 * 1024, MAX_TEXT_BYTES = 28 * 1024;
+const MIN_T = Date.UTC(2024, 0, 1), DAY = 86400000;
 const num = (v, min, max) => typeof v === 'number' && Number.isFinite(v) && v >= min && v <= max;
 const int = (v, min, max) => num(v, min, max) ? Math.round(v) : null;
-// 範囲外の数値は捨てずに範囲内へ丸める(記録が黙って消えないように)
-const clamp = (v, min, max) => typeof v === 'number' && Number.isFinite(v) ? Math.round(Math.min(max, Math.max(min, v))) : null;
 
-function cleanRuns(list) {
+// 範囲外の値は保存せずに捨てる(捨てた分は、端末側のローカル記録には残る)
+function cleanRuns(list, now) {
   const out = { t: [], mode: [], spd: [], acc: [], sec: [], miss: [] };
   if (!Array.isArray(list)) return out;
   for (const r of list.slice(0, MAX_RUNS_IN)) {
     if (!r || typeof r.mode !== 'string' || !/^[a-z]{1,10}(:[a-z]{1,10})?$/.test(r.mode)) continue;
-    const t = int(r.t, 1e12, 4e12), spd = clamp(r.spd, 0, 100000), sec = clamp(r.sec, 0, 86400), miss = clamp(r.miss, 0, 1000000);
+    const t = int(r.t, MIN_T, now + DAY), spd = int(r.spd, 0, 3000), sec = int(r.sec, 0, 86400), miss = int(r.miss, 0, 100000);
     if (t === null || spd === null || sec === null || miss === null || !num(r.acc, 0, 1)) continue;
     out.t.push(t); out.mode.push(r.mode); out.spd.push(spd); out.acc.push(r.acc); out.sec.push(sec); out.miss.push(miss);
   }
   return out;
 }
+// キー統計の増分。クライアントの rec() が必ず満たす関係(ミスm + 速度を測れたc <= 打鍵n、遅延は1打あたり2秒未満)を守らないものは捨てる
 function cleanKeys(kd) {
   const out = { k: [], n: [], m: [], t: [], c: [] };
   if (!kd || typeof kd !== 'object') return out;
   for (const [k, v] of Object.entries(kd).slice(0, MAX_KEYS)) {
     if (!v || k.length < 1 || k.length > 2) continue;
-    const n = int(v.n, 0, 1e9), m = int(v.m, 0, 1e9), t = int(v.t, 0, 1e13), c = int(v.c, 0, 1e9);
+    const n = int(v.n, 0, 2e6), m = int(v.m, 0, 2e6), c = int(v.c, 0, 2e6), t = int(v.t, 0, 4e9);
     if (n === null || m === null || t === null || c === null) continue;
+    if (m + c > n || t > c * 2000) continue;
     out.k.push(k); out.n.push(n); out.m.push(m); out.t.push(t); out.c.push(c);
   }
   return out;
+}
+// 設定はホワイトリスト: 決めた項目・型・値だけを保存する(DBを任意のJSONの置き場にされないように)
+const bytes = s => Buffer.byteLength(s, 'utf8');
+function cleanPrefs(d) {
+  if (!d || typeof d !== 'object' || Array.isArray(d)) return null;
+  const out = {};
+  const s = d.settings;
+  if (s && typeof s === 'object' && !Array.isArray(s)) {
+    out.settings = {};
+    for (const k of ['skip', 'sound', 'retry']) if (typeof s[k] === 'boolean') out.settings[k] = s[k];
+    if (['s', 'n', 'l'].includes(s.len)) out.settings.len = s.len;
+  }
+  if (d.layout === 'jis' || d.layout === 'us') out.layout = d.layout;
+  if (d.kbMode === 'miss' || d.kbMode === 'speed') out.kbMode = d.kbMode;
+  for (const k of ['customCode', 'customIme']) if (typeof d[k] === 'string' && bytes(d[k]) <= MAX_TEXT_BYTES) out[k] = d[k];
+  return bytes(JSON.stringify(out)) <= MAX_PREFS_BYTES ? out : null;
 }
 
 module.exports = api('POST', async (req, res, body) => {
@@ -41,7 +62,13 @@ module.exports = api('POST', async (req, res, body) => {
   const exists = await sql`SELECT 1 FROM users WHERE id = ${uid}`;
   if (!exists.length) return send(res, 401, { error: 'unauthorized' }, { 'Set-Cookie': A.clearCookie() });
 
-  const runs = cleanRuns(body.runs), keys = cleanKeys(body.kd);
+  // 同期の回数制限と、最終アクセス時刻の更新(1時間に1回まで)
+  const lim = await R.hit(sql, 'sync_user', String(uid), 600000, C.syncPerUserPer10Min());
+  if (!lim.ok) return send(res, 429, { error: 'rate_limited', retryAfterSec: lim.retryAfterSec }, { 'Retry-After': String(lim.retryAfterSec) });
+  const nowMs = Date.now();
+  await sql`UPDATE users SET last_seen = ${nowMs} WHERE id = ${uid} AND (last_seen IS NULL OR last_seen < ${nowMs - 3600000})`;
+
+  const runs = cleanRuns(body.runs, nowMs), keys = cleanKeys(body.kd);
   if (runs.t.length) {
     await sql`INSERT INTO runs (user_id, t, mode, spd, acc, sec, miss)
               SELECT ${uid}, t, mode, spd, acc, sec, miss
@@ -59,13 +86,26 @@ module.exports = api('POST', async (req, res, body) => {
                 t = key_stats.t + EXCLUDED.t, c = key_stats.c + EXCLUDED.c`;
   }
 
-  const p = body.prefs;
-  if (p && typeof p === 'object' && p.data && typeof p.data === 'object' && num(p.updatedAt, 1e12, 4e12)) {
-    const json = JSON.stringify(p.data);
-    if (json.length <= MAX_PREFS_BYTES) {
-      await sql`INSERT INTO user_data (user_id, prefs, updated_at) VALUES (${uid}, ${json}::jsonb, ${Math.round(p.updatedAt)})
-                ON CONFLICT (user_id) DO UPDATE SET prefs = EXCLUDED.prefs, updated_at = EXCLUDED.updated_at
-                WHERE EXCLUDED.updated_at > user_data.updated_at`;
+  const p = body.prefs, prefs = p && typeof p === 'object' ? cleanPrefs(p.data) : null;
+  if (prefs && num(p.updatedAt, MIN_T, nowMs + DAY)) {
+    await sql`INSERT INTO user_data (user_id, prefs, updated_at) VALUES (${uid}, ${JSON.stringify(prefs)}::jsonb, ${Math.round(p.updatedAt)})
+              ON CONFLICT (user_id) DO UPDATE SET prefs = EXCLUDED.prefs, updated_at = EXCLUDED.updated_at
+              WHERE EXCLUDED.updated_at > user_data.updated_at`;
+  }
+
+  // ユーザーごとの総量の上限: 履歴は古い順に、キー統計は打鍵数の少ない順に削る
+  if (runs.t.length) {
+    const [{ n }] = await sql`SELECT count(*)::int AS n FROM runs WHERE user_id = ${uid}`;
+    if (n > MAX_RUNS_TOTAL) {
+      await sql`DELETE FROM runs WHERE user_id = ${uid} AND (t, mode) IN
+                (SELECT t, mode FROM runs WHERE user_id = ${uid} ORDER BY t DESC, mode OFFSET ${MAX_RUNS_TOTAL})`;
+    }
+  }
+  if (keys.k.length) {
+    const [{ n }] = await sql`SELECT count(*)::int AS n FROM key_stats WHERE user_id = ${uid}`;
+    if (n > MAX_KEYS) {
+      await sql`DELETE FROM key_stats WHERE user_id = ${uid} AND k IN
+                (SELECT k FROM key_stats WHERE user_id = ${uid} ORDER BY n DESC, k OFFSET ${MAX_KEYS})`;
     }
   }
 
@@ -85,4 +125,4 @@ module.exports = api('POST', async (req, res, body) => {
     keys: keyOut,
     prefs: pref.length ? { updatedAt: Number(pref[0].updated_at), data: pref[0].prefs } : null
   });
-});
+}, { maxBytes: 1024 * 1024 });

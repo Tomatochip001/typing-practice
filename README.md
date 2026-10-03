@@ -19,14 +19,52 @@ Web版(Vercel)でだけ動き、`index.html` をローカルで開いたとき�
 
 ### セットアップ(Vercel)
 1. Vercel のプロジェクトで **Storage → Neon (Postgres)** を作成し、このプロジェクトに接続する(`DATABASE_URL` が自動で入ります)。
-2. **Settings → Environment Variables** に `AUTH_SECRET` を追加する(32文字以上のランダムな文字列。例: `openssl rand -base64 48`)。
-3. 再デプロイする。テーブルは最初のアクセスで自動作成されます。
+2. **Settings → Environment Variables**(画面によっては Environments の Production などを開いた先)に、次を追加する。
 
-どちらかが未設定のときは、ログイン欄が自動で隠れ、ゲーム自体は今まで通り動きます。
+| 名前 | 必須 | 内容 |
+|---|---|---|
+| `AUTH_SECRET` | 必須 | ログインの署名用。32文字以上のランダムな文字列(Secret) |
+| `TURNSTILE_SECRET` | 必須 | Cloudflare Turnstile のシークレットキー(Secret)。**未設定だと新規登録は閉じたまま**です |
+| `CRON_SECRET` | 必須 | 掃除の定期実行の認証用。32文字以上のランダムな文字列(Secret) |
+| `MAX_USERS` | 任意 | 登録できる総ユーザー数。既定 300 |
+| `MAX_REGISTRATIONS_PER_DAY` | 任意 | 1日の新規登録数。既定 30 |
+| `REGISTER_PER_IP_PER_HOUR` | 任意 | 同じIPからの登録回数/時間。既定 3(学校など、同じIPを大勢が使う場所では増やす) |
+| `SYNC_PER_USER_PER_10MIN` | 任意 | 1人あたりの同期回数/10分。既定 60 |
+| `REGISTRATION_OPEN` | 任意 | `0` にすると新規登録を即停止(緊急用) |
+
+3. `index.html` の `TURNSTILE_SITE_KEY`(公開してよい値)に、Turnstile のサイトキーを入れる。
+4. 再デプロイする。テーブルは最初のアクセスで自動作成されます。
+
+`DATABASE_URL` か `AUTH_SECRET` が未設定のときは、ログイン欄が自動で隠れ、ゲーム自体は今まで通り動きます。
+
+### Cloudflare Turnstile の設定
+1. Cloudflare の無料アカウントを作り、**Turnstile → Add widget**。
+2. Hostname に本番のドメイン(例: `typing-practice-three-beta.vercel.app`)を入れ、Widget Mode は Managed。
+3. 表示される **Site Key** を `index.html` に、**Secret Key** を Vercel の `TURNSTILE_SECRET` に設定する。
+
+### いたずら対策の仕組み
+- 新規登録: Turnstile(人間確認)→ IPごとの回数制限 → 1日の登録数と総ユーザー数の上限 → パスワードのハッシュ化、の順。安い確認を先に行い、重い処理は最後です。
+- 同期: 1人あたり60回/10分、1回の履歴は5000件・本文1MBまで。履歴は1人2万件まで(古い順に削除)、キー統計は200キーまで。
+- 範囲外の値(未来の日時、人間の限界を超える速度、辻褄の合わないキー統計など)は保存せずに捨てます。設定は決まった項目だけを保存します。
+- 毎日1回、古い回数カウンタとログイン失敗の記録、**記録が0件で30日以上使われていないアカウント**を自動で削除します(Vercel Cron)。
+
+### 運用メモ
+- **登録を止めたい**: Vercel の環境変数に `REGISTRATION_OPEN=0` を入れて再デプロイ。戻すときは削除して再デプロイ。
+- **攻撃を受けたとき**: 上の方法で登録を止める。Vercel の Firewall や Attack Challenge Mode も使えます(使える範囲はダッシュボードで確認)。
+- **Neon の SQL エディタで使えるクエリ**
+  ```sql
+  select count(*) from users;                                   -- ユーザー数
+  select pg_size_pretty(pg_database_size(current_database()));  -- データベースの容量
+  select username, to_timestamp(created_at/1000) from users order by id desc limit 20;  -- 最近の登録
+  delete from users where username = 'ここにユーザー名';          -- ユーザーの削除(記録も一緒に消えます)
+  ```
 
 ### 仕組み
 - パスワードは scrypt + ユーザーごとのsaltでハッシュ化して保存(元のパスワードは復元できません)。ログイン時に同じ計算をして照合します。
-- ユーザー名は半角英数字と `_ - .`(3〜20文字)、パスワードは8文字以上で英字・数字・記号のうち2種類以上。メールアドレスは使いません(忘れたら復旧不可)。
+- ユーザー名は1〜30文字で、日本語・絵文字・記号・スペースなど**どんな文字でも**使えます。パスワードは8文字以上で英字・数字・記号のうち2種類以上。メールアドレスは使いません(忘れたら復旧不可)。
+  - 全角/半角と大文字/小文字は区別しません(`ＡＢＣ` と `abc` は同じ名前。保存は正規化した形)。空白は1つにまとめます。
+  - 使えないのは、制御文字・表示されない文字(ゼロ幅スペースや双方向制御など)・文字として壊れたものだけです(紛らわしい重複アカウントや、DBのエラーを防ぐため)。
+  - 入力欄の枠線は、条件に合わないと赤、合うと緑になります。両方が合って人間確認も済んだときだけ、登録ボタンが青くなります。
 - 5回続けて失敗すると15分ロック。セッションは30日、HttpOnly+Secure のcookieです。
 - 履歴は `t+モード` で重複を除き、キー統計は差分だけを足すので二重に数えません。設定は新しい方が勝ちます。
 - 全期間の推移グラフは、記録画面で「全期間」を選ぶと日/週/月ごとに自動で集計します。

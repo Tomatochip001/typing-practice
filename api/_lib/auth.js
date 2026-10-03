@@ -62,18 +62,32 @@ const userIdOf = req => readToken(parseCookies(req.headers.cookie)[COOKIE]);
 /* ---- 入力チェック ---- */
 const WEAK = new Set(['password', 'password1', '12345678', '123456789', 'qwertyui', 'qwerty123', 'abcd1234', 'iloveyou', '11111111', 'asdfghjk']);
 
+// ユーザー名は、どんな文字でも使える(日本語・絵文字・記号・スペースも可)。
+// ただし、同じ名前を別アカウントとして作れてしまう・DBがエラーにする文字は使えない。
+//  - 正規化: 全角/半角・互換文字をそろえ(NFKC)、空白は1つにまとめ、大文字小文字は区別しない
+//  - 使えない文字: 制御文字(NULを含む)、サロゲートの片割れ、私用領域、表示されない文字(ゼロ幅スペース・双方向制御など)
+//    ※ 絵文字に必要なゼロ幅接合子(U+200D)と異体字セレクタ(U+FE0F)は許可
+const HIDDEN = /[\p{Cc}\p{Cs}\p{Co}\u00AD\u034F\u061C\u115F\u1160\u17B4\u17B5\u180B-\u180E\u200B\u200C\u200E\u200F\u2028-\u202E\u2060-\u206F\u3164\uFEFF\uFFA0\uFFF9-\uFFFB]/u;
+const MAX_USERNAME = 30;
+
 function normUsername(u) {
-  return typeof u === 'string' ? u.trim().toLowerCase() : '';
+  if (typeof u !== 'string') return '';
+  return u.normalize('NFKC').replace(/\s+/g, ' ').trim().toLowerCase().normalize('NFKC');
 }
+// 引数は normUsername() を通したもの
 function checkUsername(u) {
-  return /^[a-z0-9_.-]{3,20}$/.test(u) ? null : 'ユーザー名は半角の英数字と _ - . で3〜20文字にしてください。';
+  const len = Array.from(u).length;
+  if (len < 1) return 'ユーザー名を入力してください。';
+  if (len > MAX_USERNAME) return `ユーザー名は${MAX_USERNAME}文字以内にしてください。`;
+  if (HIDDEN.test(u)) return '表示されない文字や制御文字は、ユーザー名に使えません。';
+  return null;
 }
 // 英字・数字・記号のうち2種類以上、8〜128文字
 function checkPassword(pw, username) {
   if (typeof pw !== 'string' || pw.length < 8 || pw.length > 128) return 'パスワードは8〜128文字にしてください。';
   const kinds = [/[A-Za-z]/.test(pw), /[0-9]/.test(pw), /[^A-Za-z0-9\s]/.test(pw)].filter(Boolean).length;
   if (kinds < 2) return 'パスワードは英字・数字・記号のうち2種類以上を混ぜてください。';
-  if (WEAK.has(pw.toLowerCase()) || pw.toLowerCase() === username) return 'そのパスワードは推測されやすいので使えません。';
+  if (WEAK.has(pw.toLowerCase()) || normUsername(pw) === username) return 'そのパスワードは推測されやすいので使えません。';
   return null;
 }
 

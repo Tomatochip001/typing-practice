@@ -35,7 +35,15 @@ const SCHEMA = [
      username text NOT NULL,
      ip text NOT NULL,
      at bigint NOT NULL)`,
-  `CREATE INDEX IF NOT EXISTS login_fails_idx ON login_fails (username, at)`
+  `CREATE INDEX IF NOT EXISTS login_fails_idx ON login_fails (username, at)`,
+  // 固定窓のアクセス回数カウンタ(登録・同期のレート制限用)
+  `CREATE TABLE IF NOT EXISTS rate_limits (
+     bucket text NOT NULL,
+     key text NOT NULL,
+     win bigint NOT NULL,
+     n integer NOT NULL,
+     PRIMARY KEY (bucket, key, win))`,
+  `ALTER TABLE users ADD COLUMN IF NOT EXISTS last_seen bigint`
 ];
 
 function getSql() {
