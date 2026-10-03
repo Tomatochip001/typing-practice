@@ -153,11 +153,15 @@ dialog h2{margin:0 0 12px;font-size:18px}
 .seg button{flex:1;font:inherit;font-size:14px;border:0;background:transparent;color:var(--muted);padding:5px;border-radius:6px;cursor:pointer}
 .seg button[aria-pressed="true"]{background:var(--accent);color:var(--on-accent);font-weight:700}
 .fld{display:flex;flex-direction:column;gap:4px;margin-bottom:12px;font-size:13px;color:var(--muted)}
-.fld input[type=text],.fld input[type=password]{font:inherit;font-size:16px;font-family:var(--f-mono);padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink)}
+.fld input[type=text],.fld input[type=password]{font:inherit;font-size:16px;font-family:var(--f-mono);padding:7px 9px;border:2px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink)}
 .fld input:focus{outline:2px solid var(--accent);outline-offset:1px}
-.fld input.valid{border-color:var(--ok)}
-.fld input.invalid{border-color:var(--bad)}
-.fld .why{font-size:12px;color:var(--bad);min-height:0}
+/* 合否の色: 枠線は太く、背景もごく薄く染める。入力中(フォーカス中)の輪郭も同じ色にして、青に隠れないようにする */
+.fld input.valid{border-color:var(--ok);background:color-mix(in oklab, var(--ok) 10%, var(--bg))}
+.fld input.invalid{border-color:var(--bad);background:color-mix(in oklab, var(--bad) 10%, var(--bg))}
+.fld input.valid:focus{outline-color:var(--ok)}
+.fld input.invalid:focus{outline-color:var(--bad)}
+.fld .why{font-size:12px;color:var(--bad);min-height:0;font-weight:700}
+.fld .why.ok{color:var(--ok)}
 .fld .why:empty{display:none}
 .captcha{min-height:65px;margin-bottom:10px}
 .dlg-msg{min-height:1.4em;font-size:13px;color:var(--bad);margin:2px 0 10px}
@@ -1341,7 +1345,8 @@ function mark(input, why, problem, touched){
   input.classList.toggle('valid', touched && !problem);
   input.classList.toggle('invalid', touched && !!problem);
   input.setAttribute('aria-invalid', String(touched && !!problem));
-  why.textContent = touched ? problem : '';
+  why.classList.toggle('ok', touched && !problem);
+  why.textContent = touched ? (problem || '✓ OK') : ''; // 色だけに頼らず、合っているときも印を出す
 }
 function validateAuth(){
   const u = $('#auUser').value, p = $('#auPass').value;
