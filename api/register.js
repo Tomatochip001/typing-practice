@@ -3,6 +3,7 @@ const { api, send, clientIp } = require('./_lib/http');
 const A = require('./_lib/auth');
 
 module.exports = api('POST', async (req, res, body) => {
+  A.ensureConfigured();
   const sql = await db();
   const username = A.normUsername(body.username), password = body.password;
   const err = A.checkUsername(username) || A.checkPassword(password, username);

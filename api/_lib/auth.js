@@ -77,4 +77,7 @@ function checkPassword(pw, username) {
   return null;
 }
 
-module.exports = { hashPassword, verifyPassword, burn, sessionCookie, clearCookie, userIdOf, normUsername, checkUsername, checkPassword };
+// 設定漏れ(AUTH_SECRET)は、DBに書き込む前に分かるようにする
+const ensureConfigured = () => { secret(); };
+
+module.exports = { ensureConfigured, hashPassword, verifyPassword, burn, sessionCookie, clearCookie, userIdOf, normUsername, checkUsername, checkPassword };

@@ -48,8 +48,9 @@ function getSql() {
 
 async function init(q) {
   for (const stmt of SCHEMA) {
-    try { await q(stmt); }
-    catch (e) { await q(stmt); } // 同時に起動した別インスタンスとの競合は1回だけ再試行
+    // @neondatabase/serverless v1 では sql('文字列') は使えない。文字列の SQL は sql.query() で実行する
+    try { await q.query(stmt); }
+    catch (e) { await q.query(stmt); } // 同時に起動した別インスタンスとの競合は1回だけ再試行
   }
 }
 

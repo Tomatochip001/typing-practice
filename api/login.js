@@ -5,6 +5,7 @@ const A = require('./_lib/auth');
 const WINDOW = 15 * 60 * 1000, MAX_USER = 5, MAX_IP = 30;
 
 module.exports = api('POST', async (req, res, body) => {
+  A.ensureConfigured();
   const sql = await db();
   const username = A.normUsername(body.username), password = typeof body.password === 'string' ? body.password.slice(0, 200) : '';
   const ip = clientIp(req), now = Date.now(), since = now - WINDOW;
