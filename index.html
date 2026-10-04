@@ -648,7 +648,7 @@ function tokenize(reading){
 /* ---------- state ---------- */
 let mode = 'code', view = 'play';
 const sub = {code:'cs', roma:'prompt', ime:'prompt', rush:'tacs'};
-const RUSH_LIMIT_MS = 60000, RUSH_LIVES = 3;
+const RUSH_LIMIT_MS = 60000, RUSH_LIVES = 3, RUSH_LOCK_MS = 600; // ライフが減った直後に、入力を止める時間
 const rushCfg = Object.assign({rule:'ta', lang:'cs'}, DB.rush);
 sub.rush = rushCfg.rule + rushCfg.lang;
 let S = null;
@@ -807,7 +807,13 @@ function miss(ch){
   clearTimeout(miss.t); miss.t = setTimeout(() => b.classList.remove('flash'), 160);
   if (S.rush) {
     S.rush.combo = 0; S.rush.clean = false;
-    if (S.rush.rule === 'sv' && --S.rush.lives <= 0) finish(); // サバイバル: ライフが尽きたら終わり
+    if (S.rush.rule === 'sv') {
+      if (--S.rush.lives <= 0) finish(); // サバイバル: ライフが尽きたら終わり
+      else { // 続けて打ち間違えて、ライフを一気に失わないよう、少しのあいだ入力を止める
+        S.rush.lockUntil = performance.now() + RUSH_LOCK_MS;
+        clearTimeout(miss.t); miss.t = setTimeout(() => b.classList.remove('flash'), RUSH_LOCK_MS);
+      }
+    }
   }
 }
 
@@ -1157,6 +1163,7 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape') { e.preventDefault(); newSession(); focusStage(); return; }
   if (S.finished) { if (e.key === 'Enter') { e.preventDefault(); newSession(); focusStage(); } return; }
   if (S.rush && rushTick()) { e.preventDefault(); render(); return; } // 時間切れのあとの入力は、受け付けない
+  if (S.rush && S.rush.lockUntil && performance.now() < S.rush.lockUntil) { e.preventDefault(); return; } // ライフが減った直後は、入力を受け付けない
   if (mode === 'ime') { $('#imeInput').focus(); return; }
   if (e.isComposing || e.key === 'Process' || e.keyCode === 229) { $('#warn').hidden = false; e.preventDefault(); return; }
   let k = e.key;
