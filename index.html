@@ -78,6 +78,13 @@ select{font:inherit;font-size:14px;color:var(--ink);background:var(--panel);bord
 #body{min-width:0}
 .code{font-family:var(--f-mono);font-size:17px;line-height:1.8;white-space:pre;overflow-x:auto;margin:0;padding:6px 2px}
 .done{color:var(--ok)}
+.ask{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 14px;border:1px solid var(--line);border-radius:8px;padding:8px 12px;margin-bottom:6px;font-size:15px}
+.ask .ja{color:var(--muted)}.ask .w{font-family:var(--f-mono);font-size:20px;font-weight:700}
+.ask .conv{background:var(--accent-soft);color:var(--accent);border-radius:999px;padding:1px 10px;font-size:13px;font-weight:700}
+.bugbox{border:1px solid var(--line);border-radius:8px;padding:6px 12px 8px;margin-bottom:6px}
+.bugbox .hd{font-size:12px;color:var(--muted);margin-bottom:2px}.bugbox .hd b{color:var(--bad)}
+.bugbox pre{font-family:var(--f-mono);font-size:15px;line-height:1.6;margin:0;overflow-x:auto;color:var(--muted)}
+.bugbox .bl{background:color-mix(in srgb,var(--bad) 18%,transparent);color:var(--ink);display:inline-block;min-width:100%}
 .code.rush{font-size:44px;text-align:center;padding:26px 4px}
 .lives{color:var(--bad);letter-spacing:.12em}
 .rush-ready{text-align:center;color:var(--muted);font-size:13px;margin:0}
@@ -206,6 +213,8 @@ section.set h3{font-size:15px;margin:0 0 8px}
       <button role="tab" data-mode="ime">IME変換</button>
       <button role="tab" data-mode="weak">苦手特訓</button>
       <button role="tab" data-mode="rush">ラッシュ</button>
+      <button role="tab" data-mode="bug">バグ修正</button>
+      <button role="tab" data-mode="name">命名規則</button>
       <button role="tab" data-mode="rec">記録</button>
     </nav>
   </header>
@@ -232,6 +241,14 @@ section.set h3{font-size:15px;margin:0 0 8px}
       <label>ルール<select id="selRule"><option value="ta">タイムアタック(60秒)</option><option value="sv">サバイバル(ミス3回で終了)</option></select></label>
       <label>言語<select id="selRushLang"><option value="cs">C# (Unity)</option><option value="py">Python</option><option value="js">JavaScript</option><option value="all">すべて</option></select></label>
       <span class="hint" id="rushBest"></span>
+    </div>
+    <div class="controls" id="ctl-bug">
+      <label>言語<select id="selBug"><option value="cs">C# (Unity)</option><option value="py">Python</option><option value="js">JavaScript</option></select></label>
+      <span class="hint">バグのあるコードを見て、正しく直したコードを打ちます</span>
+    </div>
+    <div class="controls" id="ctl-name">
+      <label>言語<select id="selName"><option value="cs">C# (Unity)</option><option value="py">Python</option><option value="js">JavaScript</option></select></label>
+      <span class="hint">単語を、指定された命名規則の名前に直して打ちます</span>
     </div>
     <div class="controls" id="ctl-common">
       <label id="lblLen">長さ<select id="selLen"><option value="s">短め</option><option value="n">標準</option><option value="l">長め</option></select></label>
@@ -265,7 +282,7 @@ section.set h3{font-size:15px;margin:0 0 8px}
     <div class="rec-grid">
       <div class="sec">
         <div class="sec-h"><h2>速度の推移</h2>
-          <span><select id="selHist"><option value="code">コード</option><option value="roma">ローマ字</option><option value="ime">IME変換</option><option value="weak">苦手特訓</option><option value="rush-ta">ラッシュ(タイムアタック)</option><option value="rush-sv">ラッシュ(サバイバル)</option></select>
+          <span><select id="selHist"><option value="code">コード</option><option value="roma">ローマ字</option><option value="ime">IME変換</option><option value="weak">苦手特訓</option><option value="rush-ta">ラッシュ(タイムアタック)</option><option value="rush-sv">ラッシュ(サバイバル)</option><option value="bug">バグ修正</option><option value="name">命名規則</option></select>
           <select id="selGran"><option value="run">回ごと</option><option value="day">日ごと</option><option value="all">全期間</option></select></span></div>
         <div id="chart" class="chart"></div>
       </div>
@@ -546,6 +563,318 @@ break case catch class const continue debugger default delete do else export ext
 import in instanceof let new null return super switch this throw true try typeof undefined var void while with
 yield async await console.log Promise Array Object JSON Math setTimeout fetch document window addEventListener
 querySelector forEach map filter reduce push
+@@bug_cs
+比較するところが「=」(代入)になっている
+---
+if (speed = maxSpeed)
+{
+    speed = 0f;
+}
+---
+if (speed == maxSpeed)
+{
+    speed = 0f;
+}
+@@bug_cs
+行の終わりのセミコロンが足りない
+---
+void Start()
+{
+    rb = GetComponent<Rigidbody>()
+}
+---
+void Start()
+{
+    rb = GetComponent<Rigidbody>();
+}
+@@bug_cs
+配列の範囲を1つ超えてしまう
+---
+for (int i = 0; i <= items.Length; i++)
+{
+    Debug.Log(items[i]);
+}
+---
+for (int i = 0; i < items.Length; i++)
+{
+    Debug.Log(items[i]);
+}
+@@bug_cs
+型の名前の大文字小文字が違う
+---
+void Reset()
+{
+    transform.position = new vector3(0, 1, 0);
+}
+---
+void Reset()
+{
+    transform.position = new Vector3(0, 1, 0);
+}
+@@bug_cs
+フレームレートで速さが変わってしまう
+---
+void Update()
+{
+    transform.Translate(Vector3.forward * speed);
+}
+---
+void Update()
+{
+    transform.Translate(Vector3.forward * speed * Time.deltaTime);
+}
+@@bug_cs
+タグの比較が「=」になっている
+---
+void OnTriggerEnter(Collider other)
+{
+    if (other.CompareTag = "Goal")
+    {
+        Finish();
+    }
+}
+---
+void OnTriggerEnter(Collider other)
+{
+    if (other.CompareTag("Goal"))
+    {
+        Finish();
+    }
+}
+@@bug_cs
+文字列の閉じる「"」が足りない
+---
+void Finish()
+{
+    Debug.Log("Goal!);
+}
+---
+void Finish()
+{
+    Debug.Log("Goal!");
+}
+@@bug_cs
+小数の数値に f が付いていない
+---
+private float maxSpeed = 30.5;
+private float turnRate = 1.5;
+---
+private float maxSpeed = 30.5f;
+private float turnRate = 1.5f;
+@@bug_cs
+メソッドの呼び出しにカッコがない
+---
+void Update()
+{
+    if (Input.GetKeyDown(KeyCode.R))
+    {
+        ResetCar;
+    }
+}
+---
+void Update()
+{
+    if (Input.GetKeyDown(KeyCode.R))
+    {
+        ResetCar();
+    }
+}
+@@bug_py
+比較するところが「=」(代入)になっている
+---
+if score = 100:
+    print("満点")
+---
+if score == 100:
+    print("満点")
+@@bug_py
+def の行の終わりに「:」がない
+---
+def add(a, b)
+    return a + b
+---
+def add(a, b):
+    return a + b
+@@bug_py
+リストの範囲を1つ超えてしまう
+---
+for i in range(len(items) + 1):
+    print(items[i])
+---
+for i in range(len(items)):
+    print(items[i])
+@@bug_py
+インデント(字下げ)が足りない
+---
+def greet(name):
+print("Hello, " + name)
+---
+def greet(name):
+    print("Hello, " + name)
+@@bug_py
+数値と文字列を、そのまま足している
+---
+score = 120
+print("score: " + score)
+---
+score = 120
+print("score: " + str(score))
+@@bug_py
+ループが終わらない
+---
+count = 0
+while count < 10:
+    print(count)
+---
+count = 0
+while count < 10:
+    print(count)
+    count += 1
+@@bug_py
+「どちらか」の判定の書き方が間違っている
+---
+if name == "Alice" or "Bob":
+    print("known")
+---
+if name in ("Alice", "Bob"):
+    print("known")
+@@bug_py
+関数が値を返していない
+---
+def square(n):
+    n * n
+---
+def square(n):
+    return n * n
+@@bug_py
+「True」の大文字小文字が違う
+---
+def is_ready():
+    return true
+---
+def is_ready():
+    return True
+@@bug_js
+比較するところが「=」(代入)になっている
+---
+if (lives = 0) {
+  gameOver();
+}
+---
+if (lives === 0) {
+  gameOver();
+}
+@@bug_js
+const の変数に、あとから足している
+---
+const total = 0;
+total += 5;
+---
+let total = 0;
+total += 5;
+@@bug_js
+閉じカッコが足りない
+---
+items.forEach(item => {
+  console.log(item);
+};
+---
+items.forEach(item => {
+  console.log(item);
+});
+@@bug_js
+for の行の終わりに余計な「;」がある
+---
+for (let i = 0; i < arr.length; i++);
+{
+  console.log(arr[i]);
+}
+---
+for (let i = 0; i < arr.length; i++)
+{
+  console.log(arr[i]);
+}
+@@bug_js
+アロー関数が値を返していない
+---
+const doubled = [1, 2, 3].map(n => { n * 2 });
+---
+const doubled = [1, 2, 3].map(n => n * 2);
+@@bug_js
+関数を、その場で呼び出してしまっている
+---
+btn.addEventListener("click", handleClick());
+---
+btn.addEventListener("click", handleClick);
+@@bug_js
+文字列のまま足している
+---
+const input = "5";
+const sum = input + 3;
+---
+const input = "5";
+const sum = Number(input) + 3;
+@@bug_js
+関数が値を返していない
+---
+function add(a, b) {
+  a + b;
+}
+---
+function add(a, b) {
+  return a + b;
+}
+@@bug_js
+スペルが間違っている
+---
+if (typeof value === "undefind") {
+  value = 0;
+}
+---
+if (typeof value === "undefined") {
+  value = 0;
+}
+@@name
+move speed|移動速度
+max speed|最高速度
+current lap|現在の周回数
+lap time|ラップタイム
+best time|ベストタイム
+player name|プレイヤー名
+car controller|車の制御
+is finished|ゴールしたか
+start position|スタート位置
+goal line|ゴールライン
+checkpoint count|チェックポイント数
+steering angle|ハンドルの角度
+brake force|ブレーキの力
+engine power|エンジンの出力
+fuel amount|燃料の量
+race manager|レースの管理
+score board|得点表
+game over|ゲームオーバー
+user input|ユーザーの入力
+total score|合計得点
+high score|ハイスコア
+is paused|一時停止中か
+spawn point|出現位置
+enemy count|敵の数
+jump height|ジャンプの高さ
+life count|残りライフ
+load scene|シーンの読み込み
+save data|セーブデータ
+get speed|速度を取得
+set volume|音量を設定
+update timer|タイマーの更新
+reset position|位置のリセット
+calculate damage|ダメージの計算
+play sound|音を鳴らす
+countdown time|カウントダウンの時間
+camera offset|カメラのずれ
+turn rate|曲がりやすさ
+wheel radius|タイヤの半径
+rank list|順位の一覧
+final result|最終結果
 @@pool
 return function const let var public private static void int float bool string class struct new this self None True False null undefined async await import from export default if else elif for foreach while break continue switch case try catch finally throw yield lambda print len range list dict map filter reduce length push pop index value result count items data json path open GetComponent<Rigidbody>() transform.position Vector3.zero Quaternion.identity Time.deltaTime Debug.Log("ok"); Input.GetKey(KeyCode.W) Mathf.Clamp(x,0,1) rb.velocity.magnitude console.log(x); querySelector("#id") arr.map(x=>x*2) obj?.value??0 a!==b x>=10&&y<=20 i++ j-- {} [] () <> :: -> => != == += -= *= /= %= || && "str" 'c' `tpl` #define @property $value ^xor ~not |pipe snake_case camelCase PascalCase MAX_SIZE __init__ self.hp kansuu shuusei setsumei hensuu konpairu ryoukai arigatou onegaishimasu yoroshiku zyunbi kyoyuu chousei bunkasai purogura
 </script>
@@ -574,6 +903,9 @@ const pairs = tag => blocks[tag][0].split('\n').filter(Boolean).map(l => l.split
 const JP = { prompt: pairs('prompt'), daily: pairs('daily') };
 const POOL = blocks.pool[0].split(/\s+/).filter(Boolean);
 const wordsOf = tag => [...new Set(blocks[tag][0].split(/\s+/).filter(Boolean))];
+const BUGS = {};
+['cs','py','js'].forEach(l => { BUGS[l] = blocks['bug_' + l].map(b => { const [hint, bad, fix] = b.split(/^---$/m).map(x => x.replace(/^\n+|\n+$/g, '')); return {hint, bad:normCode(bad), fix:normCode(fix)}; }); });
+const NAMES = pairs('name');
 const RUSH = { cs: wordsOf('rush_cs'), py: wordsOf('rush_py'), js: wordsOf('rush_js') };
 RUSH.all = [...new Set([...RUSH.cs, ...RUSH.py, ...RUSH.js])];
 
@@ -582,7 +914,7 @@ function normCode(s){
 }
 function shuffle(a){ a = a.slice(); for (let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
 const pick = (a,n) => shuffle(a).slice(0,n);
-const LEN = {code:{s:1,n:3,l:6}, sym:{s:4,n:8,l:16}, jp:{s:4,n:8,l:16}, chunk:{s:5,n:10,l:20}};
+const LEN = {bug:{s:3,n:5,l:9}, name:{s:8,n:15,l:30}, code:{s:1,n:3,l:6}, sym:{s:4,n:8,l:16}, jp:{s:4,n:8,l:16}, chunk:{s:5,n:10,l:20}};
 const lenOf = k => LEN[k][DB.settings.len] || LEN[k].n;
 
 /* ---------- romaji engine ---------- */
@@ -647,7 +979,7 @@ function tokenize(reading){
 
 /* ---------- state ---------- */
 let mode = 'code', view = 'play';
-const sub = {code:'cs', roma:'prompt', ime:'prompt', rush:'tacs'};
+const sub = {code:'cs', roma:'prompt', ime:'prompt', rush:'tacs', bug:'cs', name:'cs'};
 const RUSH_LIMIT_MS = 60000, RUSH_LIVES = 3, RUSH_LOCK_MS = 600; // ライフが減った直後に、入力を止める時間
 const rushCfg = Object.assign({rule:'ta', lang:'cs'}, DB.rush);
 sub.rush = rushCfg.rule + rushCfg.lang;
@@ -680,7 +1012,35 @@ function buildItems(){
     return pick(JP[sub.ime], lenOf('jp')).map(([text]) => ({type:'ime', text}));
   }
   if (mode === 'rush') return genRush(0, 30);
+  if (mode === 'bug') return pick(BUGS[sub.bug], lenOf('bug')).map(b => ({type:'code', text:b.fix, bug:b}));
+  if (mode === 'name') return genNames(sub.name, lenOf('name'));
   return genWeak();
+}
+
+/* ---------- 命名規則(単語を、指定された書き方の名前に直して打つ) ---------- */
+const NAME_CONV = {
+  cs: [['camel','変数・引数','camelCase'], ['pascal','クラス・メソッド・プロパティ','PascalCase'], ['_camel','privateフィールド','_camelCase'], ['upper','定数','UPPER_SNAKE_CASE']],
+  py: [['snake','変数・関数','snake_case'], ['pascal','クラス','PascalCase'], ['upper','定数','UPPER_SNAKE_CASE'], ['_snake','内部用の名前','_snake_case']],
+  js: [['camel','変数・関数','camelCase'], ['pascal','クラス','PascalCase'], ['upper','定数','UPPER_SNAKE_CASE'], ['kebab','CSSクラス・ファイル名','kebab-case']]
+};
+function nameConv(kind, ws){
+  const cap = w => w[0].toUpperCase() + w.slice(1), camel = ws[0] + ws.slice(1).map(cap).join('');
+  return {camel, _camel:'_' + camel, pascal:ws.map(cap).join(''), snake:ws.join('_'), _snake:'_' + ws.join('_'), upper:ws.join('_').toUpperCase(), kebab:ws.join('-')}[kind];
+}
+function genNames(lang, n){
+  return pick(NAMES, n).map(([words, ja]) => {
+    const [kind, use, label] = NAME_CONV[lang][Math.floor(Math.random() * NAME_CONV[lang].length)];
+    return {type:'code', text:nameConv(kind, words.split(' ')), ask:{words, ja, use, label}};
+  });
+}
+function panelHTML(it){
+  if (it.ask) { const a = it.ask; return `<div class="ask"><span class="w">${esc(a.words)}</span><span class="ja">${esc(a.ja)}</span><span>→</span><span class="conv">${esc(a.label)}</span><span class="ja">${esc(a.use)}</span></div>`; }
+  if (it.bug) {
+    const fixed = new Set(it.bug.fix.split('\n'));
+    const lines = it.bug.bad.split('\n'), any = lines.some(l => !fixed.has(l));
+    return `<div class="bugbox"><div class="hd"><b>バグあり</b> ・ ヒント: ${esc(it.bug.hint)}</div><pre>${lines.map(l => any && !fixed.has(l) ? `<span class="bl">${esc(l) || ' '}</span>` : esc(l)).join('\n')}</pre></div><div class="hd" style="font-size:12px;color:var(--muted)">↓ 直したコードを、最初から打つ</div>`;
+  }
+  return '';
 }
 
 /* ---------- ラッシュ(予約語を次々に打つ。タイムアタック / サバイバル) ---------- */
@@ -895,7 +1255,7 @@ function dedent(lines){
   return ind && ind !== Infinity ? lines.map(l => l.slice(ind)) : lines;
 }
 function queueRetry(it){
-  if (!opt.retry || it.retry || !it.missN || mode === 'ime' || S.rush) return;
+  if (!opt.retry || it.retry || !it.missN || mode === 'ime' || mode === 'bug' || mode === 'name' || S.rush) return;
   if (it.type === 'code') {
     const all = it.text.split('\n');
     const lines = dedent([...it.missLines].sort((a, b) => a - b).map(i => all[i]).filter(l => l && l.trim()));
@@ -927,6 +1287,7 @@ function modeKey(){ return mode === 'weak' ? 'weak' : mode + ':' + sub[mode]; }
 const MODE_LABEL = {'code:cs':'コード C#','code:py':'コード Python','code:js':'コード JS','code:sym':'記号ラッシュ','code:custom':'自作コード',
   'roma:prompt':'ローマ字 プロンプト','roma:daily':'ローマ字 日常','roma:mix':'ローマ字 ミックス',
   'ime:prompt':'IME プロンプト','ime:daily':'IME 日常','ime:custom':'IME 自作','weak':'苦手特訓'};
+for (const [lg, nm] of [['cs', 'C#'], ['py', 'Python'], ['js', 'JS']]) { MODE_LABEL['bug:' + lg] = 'バグ修正 ' + nm; MODE_LABEL['name:' + lg] = '命名規則 ' + nm; }
 for (const rule of ['ta', 'sv']) for (const [lg, nm] of [['cs', 'C#'], ['py', 'Python'], ['js', 'JS'], ['all', '全部']]) {
   MODE_LABEL['rush:' + rule + lg] = `ラッシュ ${rule === 'ta' ? '60秒' : 'サバイバル'} ${nm}`;
 }
@@ -1002,7 +1363,7 @@ function renderBody(){
     const t = it.text, p = it.pos, c = t[p];
     const curHTML = c === '\n' ? '<span class="cur">↵</span>\n' : `<span class="cur">${esc(c)}</span>`;
     const ready = S.rush && !S.start ? `<p class="rush-ready">${S.rush.rule === 'ta' ? '最初のキーを押すと、60秒のカウントが始まります' : '最初のキーでスタート。ミスは3回まで。語数が増えるほど長い語が出ます'}</p>` : '';
-    body.innerHTML = `${retryTag}${ready}<pre class="code${S.rush ? ' rush' : ''}"><span class="done">${doneHTML(it)}</span>${curHTML}<span class="rest">${esc(t.slice(p+1))}</span></pre>${nextLine}`;
+    body.innerHTML = `${retryTag}${panelHTML(it)}${ready}<pre class="code${S.rush ? ' rush' : ''}"><span class="done">${doneHTML(it)}</span>${curHTML}<span class="rest">${esc(t.slice(p+1))}</span></pre>${nextLine}`;
     const el = body.querySelector('.cur'); if (el && el.scrollIntoView) el.scrollIntoView({block:'nearest', inline:'nearest'});
   } else if (it.type === 'roma') {
     let kDone = '', kRest = '', rDone = '', rCur = '', rRest = '';
@@ -1079,6 +1440,8 @@ const HINTS = {
   roma: 'shi/si、tsu/tu、ん=nn/n など好きな打ち方でOK ・ <kbd>Esc</kbd> やり直し ・ 半角英数で入力。',
   ime: '普段どおりIMEで変換して入力。全部一致すると次の問題へ進みます ・ <kbd>Esc</kbd> やり直し',
   weak: '記録から苦手なキーを多く含む問題を作ります ・ <kbd>Esc</kbd> で作り直し',
+  bug: 'バグのあるコードを見つけて、正しいコードを最初から打ちます ・ <kbd>Esc</kbd> やり直し ・ 半角英数で入力。',
+  name: '単語を、指定された命名規則に直して打ちます(例: move speed → moveSpeed)・ <kbd>Esc</kbd> やり直し',
   rush: '出てくる予約語を、1語ずつ打ちます。ミスをするとその場で止まります ・ <kbd>Esc</kbd> やり直し ・ 半角英数で入力。'
 };
 function render(){
@@ -1093,12 +1456,12 @@ function setMode(m){
   document.querySelectorAll('#tabs button').forEach(b => b.setAttribute('aria-selected', String(b.dataset.mode === (view === 'rec' ? 'rec' : mode))));
   $('#play').hidden = view !== 'play';
   $('#rec').hidden = view !== 'rec';
-  ['code','roma','ime','weak','rush'].forEach(k => { $('#ctl-' + k).hidden = k !== mode; });
-  $('#lblSkip').hidden = !(mode === 'code' || mode === 'roma' || mode === 'weak');
-  $('#lblRetry').hidden = mode === 'ime' || mode === 'rush'; $('#optRetry').checked = DB.settings.retry;
+  ['code','roma','ime','weak','rush','bug','name'].forEach(k => { $('#ctl-' + k).hidden = k !== mode; });
+  $('#lblSkip').hidden = !(mode === 'code' || mode === 'roma' || mode === 'weak' || mode === 'bug' || mode === 'name');
+  $('#lblRetry').hidden = mode === 'ime' || mode === 'rush' || mode === 'bug' || mode === 'name'; $('#optRetry').checked = DB.settings.retry;
   $('#optSkip').checked = DB.settings.skip; $('#selLen').value = DB.settings.len; $('#optSound').checked = DB.settings.sound;
   $('#lblLen').hidden = (mode === 'ime' && sub.ime === 'custom') || mode === 'rush';
-  $('#selRule').value = rushCfg.rule; $('#selRushLang').value = rushCfg.lang; updateRushInfo();
+  $('#selBug').value = sub.bug; $('#selName').value = sub.name; $('#selRule').value = rushCfg.rule; $('#selRushLang').value = rushCfg.lang; updateRushInfo();
   updateCustomBox();
   if (view === 'rec') { renderRecords(); return; }
   if (mode === 'weak') {
@@ -1129,6 +1492,8 @@ $('#selCode').addEventListener('change', e => { sub.code = e.target.value; updat
 const setRush = () => { sub.rush = rushCfg.rule + rushCfg.lang; DB.rush = {rule:rushCfg.rule, lang:rushCfg.lang}; saveDB(); updateRushInfo(); newSession(); focusStage(); };
 $('#selRule').addEventListener('change', e => { rushCfg.rule = e.target.value; setRush(); });
 $('#selRushLang').addEventListener('change', e => { rushCfg.lang = e.target.value; setRush(); });
+$('#selBug').addEventListener('change', e => { sub.bug = e.target.value; newSession(); focusStage(); });
+$('#selName').addEventListener('change', e => { sub.name = e.target.value; newSession(); focusStage(); });
 $('#selRoma').addEventListener('change', e => { sub.roma = e.target.value; newSession(); focusStage(); });
 $('#selIme').addEventListener('change', e => { sub.ime = e.target.value; $('#lblLen').hidden = sub.ime === 'custom'; updateCustomBox(); newSession(); focusStage(); });
 $('#optIndent').addEventListener('change', e => { opt.indent = e.target.checked; newSession(); focusStage(); });
