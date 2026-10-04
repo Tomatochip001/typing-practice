@@ -19,7 +19,7 @@ function cleanRuns(list, now) {
   const out = { t: [], mode: [], spd: [], acc: [], sec: [], miss: [], w: [] };
   if (!Array.isArray(list)) return out;
   for (const r of list.slice(0, MAX_RUNS_IN)) {
-    if (!r || typeof r.mode !== 'string' || !/^[a-z]{1,10}(:[a-z]{1,10})?$/.test(r.mode)) continue;
+    if (!r || typeof r.mode !== 'string' || !/^[a-z]{1,10}(:[a-z0-9]{1,12})?(:[13])?$/.test(r.mode)) continue;
     const t = int(r.t, MIN_T, now + DAY), spd = int(r.spd, 0, 3000), sec = int(r.sec, 0, 86400), miss = int(r.miss, 0, 100000);
     const w = r.w == null ? 0 : int(r.w, 0, 100000); // ラッシュの語数。無いときは0
     if (t === null || spd === null || sec === null || miss === null || w === null || !num(r.acc, 0, 1)) continue;
@@ -50,6 +50,7 @@ function cleanPrefs(d) {
     out.settings = {};
     for (const k of ['skip', 'sound', 'retry']) if (typeof s[k] === 'boolean') out.settings[k] = s[k];
     if (['s', 'n', 'l'].includes(s.len)) out.settings.len = s.len;
+    if ([1, 2, 3].includes(s.lv)) out.settings.lv = s.lv;
   }
   if (d.layout === 'jis' || d.layout === 'us') out.layout = d.layout;
   if (d.kbMode === 'miss' || d.kbMode === 'speed') out.kbMode = d.kbMode;
