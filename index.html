@@ -78,6 +78,10 @@ select{font:inherit;font-size:14px;color:var(--ink);background:var(--panel);bord
 #body{min-width:0}
 .code{font-family:var(--f-mono);font-size:17px;line-height:1.8;white-space:pre;overflow-x:auto;margin:0;padding:6px 2px}
 .done{color:var(--ok)}
+.code.rush{font-size:44px;text-align:center;padding:26px 4px}
+.lives{color:var(--bad);letter-spacing:.12em}
+.rush-ready{text-align:center;color:var(--muted);font-size:13px;margin:0}
+.newbest{display:inline-block;background:var(--accent);color:var(--on-accent);border-radius:999px;padding:1px 12px;font-size:13px;font-weight:700;margin-left:8px;vertical-align:middle}
 .retry-tag{align-self:flex-start;font-size:12px;color:var(--accent);background:var(--accent-soft);border-radius:999px;padding:1px 10px;margin-bottom:2px;display:inline-block}
 .done .ng{color:var(--bad);text-decoration:underline wavy;text-underline-offset:4px}
 .rest{color:var(--muted)}
@@ -201,6 +205,7 @@ section.set h3{font-size:15px;margin:0 0 8px}
       <button role="tab" data-mode="roma">ローマ字</button>
       <button role="tab" data-mode="ime">IME変換</button>
       <button role="tab" data-mode="weak">苦手特訓</button>
+      <button role="tab" data-mode="rush">ラッシュ</button>
       <button role="tab" data-mode="rec">記録</button>
     </nav>
   </header>
@@ -223,6 +228,11 @@ section.set h3{font-size:15px;margin:0 0 8px}
         <option value="prompt">AIプロンプト</option><option value="daily">日常・連絡</option><option value="custom">自作(1行=1問)</option></select></label>
     </div>
     <div class="controls" id="ctl-weak"><span id="weakInfo"></span></div>
+    <div class="controls" id="ctl-rush">
+      <label>ルール<select id="selRule"><option value="ta">タイムアタック(60秒)</option><option value="sv">サバイバル(ミス3回で終了)</option></select></label>
+      <label>言語<select id="selRushLang"><option value="cs">C# (Unity)</option><option value="py">Python</option><option value="js">JavaScript</option><option value="all">すべて</option></select></label>
+      <span class="hint" id="rushBest"></span>
+    </div>
     <div class="controls" id="ctl-common">
       <label id="lblLen">長さ<select id="selLen"><option value="s">短め</option><option value="n">標準</option><option value="l">長め</option></select></label>
       <label class="chk" id="lblSkip"><input type="checkbox" id="optSkip"> ミスしても先に進む</label>
@@ -236,10 +246,12 @@ section.set h3{font-size:15px;margin:0 0 8px}
 
     <div class="stage" id="stage" tabindex="0">
       <div class="hud">
-        <span>問題 <b id="hNum">1/3</b></span>
+        <span><span id="hNumLbl">問題</span> <b id="hNum">1/3</b></span>
         <span>速度 <b id="hSpd">0</b><i id="hUnit">打/分</i></span>
         <span>正確率 <b id="hAcc">-</b></span>
-        <span>時間 <b id="hTime">0:00</b></span>
+        <span><span id="hTimeLbl">時間</span> <b id="hTime">0:00</b></span>
+        <span id="hLivesWrap" hidden>ライフ <b id="hLives" class="lives"></b></span>
+        <span id="hComboWrap" hidden>連続 <b id="hCombo">0</b><i>語</i></span>
       </div>
       <div class="bar"><i id="prog"></i></div>
       <div id="warn" class="warn" hidden>IMEがオンになっています。半角英数に切り替えてください(半角/全角キー)。</div>
@@ -253,7 +265,7 @@ section.set h3{font-size:15px;margin:0 0 8px}
     <div class="rec-grid">
       <div class="sec">
         <div class="sec-h"><h2>速度の推移</h2>
-          <span><select id="selHist"><option value="code">コード</option><option value="roma">ローマ字</option><option value="ime">IME変換</option><option value="weak">苦手特訓</option></select>
+          <span><select id="selHist"><option value="code">コード</option><option value="roma">ローマ字</option><option value="ime">IME変換</option><option value="weak">苦手特訓</option><option value="rush-ta">ラッシュ(タイムアタック)</option><option value="rush-sv">ラッシュ(サバイバル)</option></select>
           <select id="selGran"><option value="run">回ごと</option><option value="day">日ごと</option><option value="all">全期間</option></select></span></div>
         <div id="chart" class="chart"></div>
       </div>
@@ -515,6 +527,25 @@ print(f"{name!r:>10}")
 return !(a || b) && c;
 i += 1; j -= 2; k *= 3;
 <div class="box">{text}</div>
+@@rush_cs
+abstract as base bool break byte case catch char checked class const continue decimal default delegate do double
+else enum event explicit extern false finally fixed float for foreach goto if implicit in int interface internal is
+lock long namespace new null object operator out override params private protected public readonly ref return sbyte
+sealed short sizeof static string struct switch this throw true try typeof uint ulong unchecked unsafe ushort using
+virtual void volatile while var async await yield get set value nameof partial
+MonoBehaviour GameObject Transform Rigidbody Collider Vector3 Quaternion Camera Update Start Awake FixedUpdate
+LateUpdate OnEnable OnDisable OnCollisionEnter OnTriggerEnter Instantiate Destroy SerializeField transform.position
+Time.deltaTime Input.GetKey KeyCode Mathf.Clamp Debug.Log GetComponent AddForce velocity magnitude AudioSource
+ParticleSystem Coroutine IEnumerator WaitForSeconds
+@@rush_py
+and as assert async await break class continue def del elif else except finally for from global if import in is
+lambda None nonlocal not or pass raise return True False try while with yield print len range list dict set tuple
+str int float bool self __init__ enumerate zip map filter sorted open isinstance input super type round sum min max abs
+@@rush_js
+break case catch class const continue debugger default delete do else export extends false finally for function if
+import in instanceof let new null return super switch this throw true try typeof undefined var void while with
+yield async await console.log Promise Array Object JSON Math setTimeout fetch document window addEventListener
+querySelector forEach map filter reduce push
 @@pool
 return function const let var public private static void int float bool string class struct new this self None True False null undefined async await import from export default if else elif for foreach while break continue switch case try catch finally throw yield lambda print len range list dict map filter reduce length push pop index value result count items data json path open GetComponent<Rigidbody>() transform.position Vector3.zero Quaternion.identity Time.deltaTime Debug.Log("ok"); Input.GetKey(KeyCode.W) Mathf.Clamp(x,0,1) rb.velocity.magnitude console.log(x); querySelector("#id") arr.map(x=>x*2) obj?.value??0 a!==b x>=10&&y<=20 i++ j-- {} [] () <> :: -> => != == += -= *= /= %= || && "str" 'c' `tpl` #define @property $value ^xor ~not |pipe snake_case camelCase PascalCase MAX_SIZE __init__ self.hp kansuu shuusei setsumei hensuu konpairu ryoukai arigatou onegaishimasu yoroshiku zyunbi kyoyuu chousei bunkasai purogura
 </script>
@@ -527,7 +558,7 @@ const STORE = 'dakendojo-v1';
 let HIST_MAX = 20000; // 運営が記録の上限を上げたら、端末にも最大4万件まで残す(localStorageの容量の都合)
 function loadDB(){ try { return JSON.parse(localStorage.getItem(STORE)); } catch(e){ return null; } }
 function saveDB(){ try { localStorage.setItem(STORE, JSON.stringify(DB)); } catch(e){} }
-let DB = Object.assign({keys:{}, history:[], customCode:'', customIme:'', layout:'jis', kbMode:'miss', account:null, kd:{}, cursor:0, prefsAt:0, prefsSynced:0}, loadDB() || {});
+let DB = Object.assign({keys:{}, history:[], customCode:'', customIme:'', layout:'jis', kbMode:'miss', rush:{rule:'ta', lang:'cs'}, account:null, kd:{}, cursor:0, prefsAt:0, prefsSynced:0}, loadDB() || {});
 DB.settings = Object.assign({skip:false, len:'n', sound:false, retry:true}, DB.settings);
 
 /* ---------- data ---------- */
@@ -542,6 +573,9 @@ $('#data').textContent.split(/^@@/m).forEach(b => {
 const pairs = tag => blocks[tag][0].split('\n').filter(Boolean).map(l => l.split('|'));
 const JP = { prompt: pairs('prompt'), daily: pairs('daily') };
 const POOL = blocks.pool[0].split(/\s+/).filter(Boolean);
+const wordsOf = tag => [...new Set(blocks[tag][0].split(/\s+/).filter(Boolean))];
+const RUSH = { cs: wordsOf('rush_cs'), py: wordsOf('rush_py'), js: wordsOf('rush_js') };
+RUSH.all = [...new Set([...RUSH.cs, ...RUSH.py, ...RUSH.js])];
 
 function normCode(s){
   return s.replace(/\r/g,'').replace(/\t/g,'    ').split('\n').map(l => l.replace(/\s+$/,'')).join('\n').replace(/^\n+|\n+$/g,'');
@@ -613,7 +647,10 @@ function tokenize(reading){
 
 /* ---------- state ---------- */
 let mode = 'code', view = 'play';
-const sub = {code:'cs', roma:'prompt', ime:'prompt'};
+const sub = {code:'cs', roma:'prompt', ime:'prompt', rush:'tacs'};
+const RUSH_LIMIT_MS = 60000, RUSH_LIVES = 3;
+const rushCfg = Object.assign({rule:'ta', lang:'cs'}, DB.rush);
+sub.rush = rushCfg.rule + rushCfg.lang;
 let S = null;
 const cur = () => S.items[S.idx];
 
@@ -642,7 +679,38 @@ function buildItems(){
     }
     return pick(JP[sub.ime], lenOf('jp')).map(([text]) => ({type:'ime', text}));
   }
+  if (mode === 'rush') return genRush(0, 30);
   return genWeak();
+}
+
+/* ---------- ラッシュ(予約語を次々に打つ。タイムアタック / サバイバル) ---------- */
+// サバイバルは、語数が増えるほど長い語が出る(8語ごとに、1文字ずつ長い語を解禁)
+function genRush(startIdx, n){
+  const pool = RUSH[rushCfg.lang] || RUSH.cs, out = [];
+  let last = startIdx > 0 && S && S.items[startIdx - 1] ? S.items[startIdx - 1].text : '';
+  for (let i = 0; i < n; i++) {
+    let allowed = pool;
+    if (rushCfg.rule === 'sv') {
+      const cap = 5 + Math.floor((startIdx + i) / 8);
+      const short = pool.filter(w => w.length <= cap);
+      if (short.length >= 8) allowed = short;
+    }
+    let w; do { w = allowed[Math.floor(Math.random() * allowed.length)]; } while (w === last && allowed.length > 1);
+    out.push({type:'code', text:w}); last = w;
+  }
+  return out;
+}
+const rushKey = () => 'rush:' + rushCfg.rule + rushCfg.lang;
+const rushBest = key => DB.history.reduce((m, h) => h.mode === key ? Math.max(m, h.w || 0) : m, 0);
+// タイムアタックの時間切れ。時間が来ていたら終わらせて true
+function rushTick(){
+  if (!S || !S.rush || S.finished || S.rush.rule !== 'ta' || !S.start) return false;
+  if (performance.now() - S.start < S.rush.limitMs) return false;
+  finish(); return true;
+}
+function updateRushInfo(){
+  const b = rushBest(rushKey());
+  $('#rushBest').textContent = b ? `自己ベスト: ${b}語` : 'まだ記録がありません';
 }
 
 function weakKeys(n){
@@ -671,7 +739,9 @@ function genWeak(){
 }
 
 function newSession(){
-  S = {items:buildItems(), idx:0, start:0, end:0, correct:0, miss:0, lastT:0, missKeys:{}, finished:false};
+  S = {items:[], idx:0, start:0, end:0, correct:0, miss:0, lastT:0, missKeys:{}, finished:false, rush:null};
+  if (mode === 'rush') S.rush = {rule:rushCfg.rule, lang:rushCfg.lang, limitMs:RUSH_LIMIT_MS, lives:RUSH_LIVES, words:0, combo:0, best:0, clean:true};
+  S.items = buildItems();
   loadItem();
   render();
 }
@@ -735,10 +805,14 @@ function miss(ch){
   rec(ch, false); sfx.miss();
   const b = $('#body'); b.classList.remove('flash'); void b.offsetWidth; b.classList.add('flash');
   clearTimeout(miss.t); miss.t = setTimeout(() => b.classList.remove('flash'), 160);
+  if (S.rush) {
+    S.rush.combo = 0; S.rush.clean = false;
+    if (S.rush.rule === 'sv' && --S.rush.lives <= 0) finish(); // サバイバル: ライフが尽きたら終わり
+  }
 }
 
 /* ---------- code typing ---------- */
-const opt = { indent:true, guide:true, get skip(){ return DB.settings.skip; }, get retry(){ return DB.settings.retry; } };
+const opt = { indent:true, guide:true, get skip(){ return DB.settings.skip && mode !== 'rush'; }, get retry(){ return DB.settings.retry; } };
 function codeKey(k){
   const it = cur(), t = it.text, exp = t[it.pos];
   const skipOn = () => { (it.bad = it.bad || new Set()).add(it.pos); it.pos++; if (exp === '\n' && opt.indent) while (t[it.pos] === ' ') it.pos++; };
@@ -815,7 +889,7 @@ function dedent(lines){
   return ind && ind !== Infinity ? lines.map(l => l.slice(ind)) : lines;
 }
 function queueRetry(it){
-  if (!opt.retry || it.retry || !it.missN || mode === 'ime') return;
+  if (!opt.retry || it.retry || !it.missN || mode === 'ime' || S.rush) return;
   if (it.type === 'code') {
     const all = it.text.split('\n');
     const lines = dedent([...it.missLines].sort((a, b) => a - b).map(i => all[i]).filter(l => l && l.trim()));
@@ -823,6 +897,14 @@ function queueRetry(it){
   } else if (it.type === 'roma') S.items.push({type:'roma', text:it.text, reading:it.reading, retry:true});
 }
 function nextItem(){
+  if (S.rush) { // ラッシュは終わりのない列。足りなくなる前に、次の語を足す
+    S.rush.words++;
+    // 連続: ミスなしで打ち切った語の数(1語の途中でミスすると、そこで0に戻る)
+    if (S.rush.clean) { S.rush.combo++; S.rush.best = Math.max(S.rush.best, S.rush.combo); } else S.rush.combo = 0;
+    S.rush.clean = true;
+    if (S.idx + 4 >= S.items.length) S.items.push(...genRush(S.items.length, 30));
+    S.idx++; sfx.item(); loadItem(); return;
+  }
   queueRetry(cur());
   S.idx++;
   if (S.idx >= S.items.length) return finish();
@@ -839,6 +921,9 @@ function modeKey(){ return mode === 'weak' ? 'weak' : mode + ':' + sub[mode]; }
 const MODE_LABEL = {'code:cs':'コード C#','code:py':'コード Python','code:js':'コード JS','code:sym':'記号ラッシュ','code:custom':'自作コード',
   'roma:prompt':'ローマ字 プロンプト','roma:daily':'ローマ字 日常','roma:mix':'ローマ字 ミックス',
   'ime:prompt':'IME プロンプト','ime:daily':'IME 日常','ime:custom':'IME 自作','weak':'苦手特訓'};
+for (const rule of ['ta', 'sv']) for (const [lg, nm] of [['cs', 'C#'], ['py', 'Python'], ['js', 'JS'], ['all', '全部']]) {
+  MODE_LABEL['rush:' + rule + lg] = `ラッシュ ${rule === 'ta' ? '60秒' : 'サバイバル'} ${nm}`;
+}
 function rankOf(spd, ime){
   const th = ime ? [60,100,140,180] : [150,250,350,450];
   const names = ['見習い','初段','二段','三段','師範'];
@@ -846,18 +931,37 @@ function rankOf(spd, ime){
   return names[i];
 }
 function finish(){
-  S.end = performance.now(); S.finished = true; sfx.done();
-  if (S.start) {
-    DB.history.push({t:Date.now(), mode:modeKey(), spd:Math.round(speed()), acc:accuracy() ?? 1, sec:Math.round((S.end - S.start)/1000), miss:S.miss, ...(DB.account ? {u:true} : {})});
+  const R = S.rush;
+  S.end = performance.now();
+  if (R && R.rule === 'ta' && S.start) S.end = Math.min(S.end, S.start + R.limitMs); // 時間切れの瞬間で止める
+  S.finished = true; sfx.done();
+  if (R) { R.prevBest = rushBest(rushKey()); R.newBest = R.words > R.prevBest; }
+  if (S.start && !(R && R.words === 0)) { // ラッシュで1語も打てなかった回は、記録しない
+    DB.history.push({t:Date.now(), mode:modeKey(), spd:Math.round(speed()), acc:accuracy() ?? 1, sec:Math.round((S.end - S.start)/1000), miss:S.miss, ...(R ? {w:R.words} : {}), ...(DB.account ? {u:true} : {})});
     if (DB.history.length > HIST_MAX) DB.history = DB.history.slice(-HIST_MAX);
     saveDB(); scheduleSync();
   }
+  if (R) updateRushInfo();
 }
 
 /* ---------- rendering ---------- */
 function fmtTime(sec){ sec = Math.max(0, Math.floor(sec)); return Math.floor(sec/60) + ':' + String(sec % 60).padStart(2,'0'); }
 function renderHud(){
   if (!S) return;
+  const R = S.rush;
+  $('#hNumLbl').textContent = R ? '語数' : '問題'; $('#hTimeLbl').textContent = R && R.rule === 'ta' ? '残り' : '時間';
+  $('#hLivesWrap').hidden = !(R && R.rule === 'sv'); $('#hComboWrap').hidden = !R;
+  if (R) {
+    const el = S.start ? (S.end || performance.now()) - S.start : 0;
+    $('#hNum').textContent = R.words;
+    $('#hSpd').textContent = Math.round(speed()); $('#hUnit').textContent = '打/分';
+    const a = accuracy(); $('#hAcc').textContent = a == null ? '-' : (a * 100).toFixed(1) + '%';
+    $('#hTime').textContent = fmtTime(R.rule === 'ta' ? Math.ceil(Math.max(0, R.limitMs - el) / 1000) : el / 1000);
+    $('#hLives').textContent = '♥'.repeat(Math.max(0, R.lives)) + '♡'.repeat(Math.max(0, RUSH_LIVES - R.lives));
+    $('#hCombo').textContent = R.combo;
+    $('#prog').style.width = (S.finished ? 100 : R.rule === 'ta' ? Math.min(100, el / R.limitMs * 100) : (R.words % 8) / 8 * 100) + '%';
+    return;
+  }
   const n = S.items.length;
   $('#hNum').textContent = Math.min(S.idx + 1, n) + '/' + n;
   $('#hSpd').textContent = Math.round(speed());
@@ -886,11 +990,13 @@ function renderBody(){
   imeWrap.hidden = it.type !== 'ime';
   const nxt = S.items[S.idx + 1];
   const retryTag = it.retry ? '<div class="retry-tag">復習: さっきミスした部分</div>' : '';
-  const nextLine = nxt ? `<div class="next">次: ${esc(nxt.type === 'code' ? nxt.text.split('\n')[0] : nxt.text)}</div>` : '';
+  const nextLine = S.rush ? `<div class="next">次: ${esc(S.items.slice(S.idx + 1, S.idx + 4).map(x => x.text).join('   '))}</div>`
+    : nxt ? `<div class="next">次: ${esc(nxt.type === 'code' ? nxt.text.split('\n')[0] : nxt.text)}</div>` : '';
   if (it.type === 'code') {
     const t = it.text, p = it.pos, c = t[p];
     const curHTML = c === '\n' ? '<span class="cur">↵</span>\n' : `<span class="cur">${esc(c)}</span>`;
-    body.innerHTML = `${retryTag}<pre class="code"><span class="done">${doneHTML(it)}</span>${curHTML}<span class="rest">${esc(t.slice(p+1))}</span></pre>${nextLine}`;
+    const ready = S.rush && !S.start ? `<p class="rush-ready">${S.rush.rule === 'ta' ? '最初のキーを押すと、60秒のカウントが始まります' : '最初のキーでスタート。ミスは3回まで。語数が増えるほど長い語が出ます'}</p>` : '';
+    body.innerHTML = `${retryTag}${ready}<pre class="code${S.rush ? ' rush' : ''}"><span class="done">${doneHTML(it)}</span>${curHTML}<span class="rest">${esc(t.slice(p+1))}</span></pre>${nextLine}`;
     const el = body.querySelector('.cur'); if (el && el.scrollIntoView) el.scrollIntoView({block:'nearest', inline:'nearest'});
   } else if (it.type === 'roma') {
     let kDone = '', kRest = '', rDone = '', rCur = '', rRest = '';
@@ -921,7 +1027,29 @@ function renderBody(){
     body.innerHTML = `<p class="ime-target">${h}</p>${nextLine}`;
   }
 }
+function rushResultHTML(){
+  const R = S.rush, spd = Math.round(speed()), a = accuracy(), ta = R.rule === 'ta';
+  const top = Object.entries(S.missKeys).sort((x, y) => y[1] - x[1]).slice(0, 6);
+  const langName = {cs:'C#', py:'Python', js:'JavaScript', all:'すべて'}[R.lang];
+  return `<div class="result">
+    <div class="rank">${ta ? 'タイムアップ！' : 'ゲームオーバー'} ・ ${ta ? 'タイムアタック(60秒)' : 'サバイバル'} ・ ${esc(langName)}</div>
+    <div class="r-main">
+      <div><span class="lbl">語数${R.newBest && R.words > 0 ? '<span class="newbest">自己ベスト更新！</span>' : ''}</span><span class="big">${R.words}</span><span class="unit">語</span></div>
+      <div><span class="lbl">速度</span><span class="mid">${spd}</span><span class="unit">打/分</span></div>
+      <div><span class="lbl">正確率</span><span class="mid">${a == null ? '-' : (a * 100).toFixed(1) + '%'}</span></div>
+      <div><span class="lbl">ミス</span><span class="mid">${S.miss}</span></div>
+      <div><span class="lbl">最高連続(ミスなし)</span><span class="mid">${R.best}</span><span class="unit">語</span></div>
+      ${ta ? '' : `<div><span class="lbl">時間</span><span class="mid">${fmtTime((S.end - S.start) / 1000)}</span></div>`}
+    </div>
+    <div class="lbl">${R.prevBest ? `これまでのベスト: ${R.prevBest}語` : '最初の記録です'}${R.words === 0 ? '(1語も打てなかった回は、記録されません)' : ''}</div>
+    ${top.length ? `<div><div class="lbl" style="margin-bottom:6px">この回ミスが多かったキー</div><div class="chips">${top.map(([k, n]) => `<span class="chip"><b>${esc(k === ' ' ? '␣' : k)}</b>${n}回</span>`).join('')}</div></div>` : '<div class="lbl">ノーミス！</div>'}
+    <div class="btns">
+      <button class="btn primary" data-act="again">もう一度 <kbd>Enter</kbd></button>
+      <button class="btn" data-act="rec">記録を見る</button>
+    </div></div>`;
+}
 function resultHTML(){
+  if (S.rush) return rushResultHTML();
   const ime = mode === 'ime';
   const spd = Math.round(speed()), a = accuracy();
   const top = Object.entries(S.missKeys).sort((x,y) => y[1] - x[1]).slice(0, 6);
@@ -944,7 +1072,8 @@ const HINTS = {
   code: '<kbd>Enter</kbd> 改行 ・ <kbd>Tab</kbd> インデント ・ <kbd>Esc</kbd> やり直し ・ 半角英数で入力。最初のキーでタイマーが始まります。',
   roma: 'shi/si、tsu/tu、ん=nn/n など好きな打ち方でOK ・ <kbd>Esc</kbd> やり直し ・ 半角英数で入力。',
   ime: '普段どおりIMEで変換して入力。全部一致すると次の問題へ進みます ・ <kbd>Esc</kbd> やり直し',
-  weak: '記録から苦手なキーを多く含む問題を作ります ・ <kbd>Esc</kbd> で作り直し'
+  weak: '記録から苦手なキーを多く含む問題を作ります ・ <kbd>Esc</kbd> で作り直し',
+  rush: '出てくる予約語を、1語ずつ打ちます。ミスをするとその場で止まります ・ <kbd>Esc</kbd> やり直し ・ 半角英数で入力。'
 };
 function render(){
   renderHud(); renderBody();
@@ -958,11 +1087,12 @@ function setMode(m){
   document.querySelectorAll('#tabs button').forEach(b => b.setAttribute('aria-selected', String(b.dataset.mode === (view === 'rec' ? 'rec' : mode))));
   $('#play').hidden = view !== 'play';
   $('#rec').hidden = view !== 'rec';
-  ['code','roma','ime','weak'].forEach(k => { $('#ctl-' + k).hidden = k !== mode; });
+  ['code','roma','ime','weak','rush'].forEach(k => { $('#ctl-' + k).hidden = k !== mode; });
   $('#lblSkip').hidden = !(mode === 'code' || mode === 'roma' || mode === 'weak');
-  $('#lblRetry').hidden = mode === 'ime'; $('#optRetry').checked = DB.settings.retry;
+  $('#lblRetry').hidden = mode === 'ime' || mode === 'rush'; $('#optRetry').checked = DB.settings.retry;
   $('#optSkip').checked = DB.settings.skip; $('#selLen').value = DB.settings.len; $('#optSound').checked = DB.settings.sound;
-  $('#lblLen').hidden = (mode === 'ime' && sub.ime === 'custom');
+  $('#lblLen').hidden = (mode === 'ime' && sub.ime === 'custom') || mode === 'rush';
+  $('#selRule').value = rushCfg.rule; $('#selRushLang').value = rushCfg.lang; updateRushInfo();
   updateCustomBox();
   if (view === 'rec') { renderRecords(); return; }
   if (mode === 'weak') {
@@ -990,6 +1120,9 @@ function updateCustomBox(){
 }
 document.querySelectorAll('#tabs button').forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
 $('#selCode').addEventListener('change', e => { sub.code = e.target.value; updateCustomBox(); newSession(); focusStage(); });
+const setRush = () => { sub.rush = rushCfg.rule + rushCfg.lang; DB.rush = {rule:rushCfg.rule, lang:rushCfg.lang}; saveDB(); updateRushInfo(); newSession(); focusStage(); };
+$('#selRule').addEventListener('change', e => { rushCfg.rule = e.target.value; setRush(); });
+$('#selRushLang').addEventListener('change', e => { rushCfg.lang = e.target.value; setRush(); });
 $('#selRoma').addEventListener('change', e => { sub.roma = e.target.value; newSession(); focusStage(); });
 $('#selIme').addEventListener('change', e => { sub.ime = e.target.value; $('#lblLen').hidden = sub.ime === 'custom'; updateCustomBox(); newSession(); focusStage(); });
 $('#optIndent').addEventListener('change', e => { opt.indent = e.target.checked; newSession(); focusStage(); });
@@ -1023,6 +1156,7 @@ document.addEventListener('keydown', e => {
   if (e.ctrlKey || e.metaKey || e.altKey) return;
   if (e.key === 'Escape') { e.preventDefault(); newSession(); focusStage(); return; }
   if (S.finished) { if (e.key === 'Enter') { e.preventDefault(); newSession(); focusStage(); } return; }
+  if (S.rush && rushTick()) { e.preventDefault(); render(); return; } // 時間切れのあとの入力は、受け付けない
   if (mode === 'ime') { $('#imeInput').focus(); return; }
   if (e.isComposing || e.key === 'Process' || e.keyCode === 229) { $('#warn').hidden = false; e.preventDefault(); return; }
   let k = e.key;
@@ -1033,7 +1167,7 @@ document.addEventListener('keydown', e => {
   if (cur().type === 'roma') romaKey(k); else codeKey(k);
   render();
 });
-setInterval(() => { if (view === 'play' && S && S.start && !S.finished) renderHud(); }, 250);
+setInterval(() => { if (view === 'play' && S && S.start && !S.finished) { if (rushTick()) render(); else renderHud(); } }, 250);
 window.addEventListener('beforeunload', saveDB);
 setInterval(saveDB, 5000);
 
@@ -1105,6 +1239,12 @@ function renderWeakList(){
 }
 
 /* 履歴を日/週/月ごとに平均する。weekは月曜始まり */
+// グラフの系列に属する履歴か。ラッシュは、ルールごとに分ける(タイムアタックとサバイバルは語数の意味が違うため)
+function inGroup(h, g){
+  if (g === 'rush-ta') return h.mode.startsWith('rush:ta');
+  if (g === 'rush-sv') return h.mode.startsWith('rush:sv');
+  return h.mode === g || h.mode.startsWith(g + ':');
+}
 function aggregate(data, kind, g){
   const groups = new Map();
   data.forEach(h => {
@@ -1114,29 +1254,31 @@ function aggregate(data, kind, g){
     else if (kind === 'week') start = new Date(d.getFullYear(), d.getMonth(), d.getDate() - (d.getDay() + 6) % 7);
     else start = new Date(d.getFullYear(), d.getMonth(), d.getDate());
     const k = start.getTime(), e = groups.get(k) || {t:k, sp:0, ac:0, n:0};
-    e.sp += h.spd; e.ac += h.acc; e.n++; groups.set(k, e);
+    e.sp += h.spd; e.ac += h.acc; e.w = (e.w || 0) + (h.w || 0); e.n++; groups.set(k, e);
   });
   return [...groups.values()].sort((a, b) => a.t - b.t).map(e => {
     const d = new Date(e.t);
     const label = kind === 'month' ? `${d.getFullYear()}/${d.getMonth()+1}` : kind === 'week' ? `${d.getMonth()+1}/${d.getDate()}の週` : `${d.getMonth()+1}/${d.getDate()}`;
-    return {t:e.t, spd:Math.round(e.sp / e.n), acc:e.ac / e.n, n:e.n, mode:g, label};
+    return {t:e.t, spd:Math.round(e.sp / e.n), acc:e.ac / e.n, w:Math.round(e.w / e.n), n:e.n, mode:g, label};
   });
 }
 function renderChart(){
   const box = $('#chart');
   const g = $('#selHist').value;
   const gran = $('#selGran').value, agg = gran !== 'run';
-  let data = DB.history.filter(h => h.mode === g || h.mode.startsWith(g + ':'));
+  const isRush = g.startsWith('rush-');
+  let data = DB.history.filter(h => inGroup(h, g));
   if (agg && data.length) {
     let kind = 'day';
     if (gran === 'all') { const span = (data[data.length-1].t - data[0].t) / 86400000; kind = span <= 60 ? 'day' : span <= 366 ? 'week' : 'month'; }
     data = aggregate(data, kind, g);
   }
   if (gran !== 'all') data = data.slice(-30);
-  const unit = g === 'ime' ? '字/分' : '打/分';
+  const unit = isRush ? '語' : g === 'ime' ? '字/分' : '打/分';
+  const val = d => isRush ? (d.w || 0) : d.spd;
   if (!data.length) { box.innerHTML = `<div class="empty">このモードの記録はまだありません。1回練習するとグラフが表示されます。</div>`; return; }
   const W = Math.max(300, box.clientWidth || 560), H = 220, ml = 40, mr = 18, mt = 14, mb = 28;
-  const max = Math.max(...data.map(d => d.spd), 10);
+  const max = Math.max(...data.map(d => val(d)), 10);
   const raw = max * 1.15 / 4, mag = Math.pow(10, Math.floor(Math.log10(raw))); const stepC = [1,2,2.5,5,10].find(m => m * mag >= raw) * mag;
   const yMax = Math.ceil(max * 1.15 / stepC) * stepC;
   const x = i => data.length === 1 ? ml + (W - ml - mr) / 2 : ml + i * (W - ml - mr) / (data.length - 1);
@@ -1146,7 +1288,7 @@ function renderChart(){
     s += `<line x1="${ml}" x2="${W - mr}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)" stroke-width="1" ${v ? 'stroke-dasharray="2 4"' : ''}/>`;
     s += `<text x="${ml - 8}" y="${y(v) + 4}" text-anchor="end">${v}</text>`;
   }
-  const pts = data.map((d, i) => [x(i), y(d.spd)]);
+  const pts = data.map((d, i) => [x(i), y(val(d))]);
   if (data.length > 1) {
     const line = pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
     s += `<path d="${line} L${pts[pts.length-1][0].toFixed(1)} ${y(0)} L${pts[0][0].toFixed(1)} ${y(0)} Z" fill="var(--accent)" fill-opacity="0.12"/>`;
@@ -1154,7 +1296,7 @@ function renderChart(){
   }
   const last = pts[pts.length - 1];
   s += `<circle cx="${last[0]}" cy="${last[1]}" r="5" fill="var(--accent)" stroke="var(--panel)" stroke-width="2"/>`;
-  s += `<text x="${Math.min(last[0], W - mr - 4)}" y="${last[1] - 10}" text-anchor="end" style="fill:var(--ink)">${data[data.length-1].spd} ${unit}</text>`;
+  s += `<text x="${Math.min(last[0], W - mr - 4)}" y="${last[1] - 10}" text-anchor="end" style="fill:var(--ink)">${val(data[data.length-1])} ${unit}</text>`;
   const yr = data.length > 1 && new Date(data[0].t).getFullYear() !== new Date(data[data.length-1].t).getFullYear();
   const dlab = t => { const d = new Date(t); return (yr ? d.getFullYear() + '/' : '') + (d.getMonth()+1) + '/' + d.getDate(); };
   s += `<text x="${x(0)}" y="${H - 8}" text-anchor="${data.length === 1 ? 'middle' : 'start'}">${dlab(data[0].t)}</text>`;
@@ -1169,13 +1311,13 @@ function renderChart(){
     const r = svg.getBoundingClientRect(), sx = (e.clientX - r.left) * W / r.width;
     let i = data.length === 1 ? 0 : Math.round((sx - ml) / ((W - ml - mr) / (data.length - 1)));
     i = Math.max(0, Math.min(data.length - 1, i));
-    const d = data[i], px = x(i), py = y(d.spd);
+    const d = data[i], px = x(i), py = y(val(d));
     cx.setAttribute('x1', px); cx.setAttribute('x2', px); cx.setAttribute('visibility', 'visible');
     cd.setAttribute('cx', px); cd.setAttribute('cy', py); cd.setAttribute('visibility', 'visible');
     const dt = new Date(d.t);
     tip.innerHTML = agg
-      ? `${d.label} ・ ${d.n}回の平均<br><b>${d.spd}</b> ${unit} ・ 正確率 ${(d.acc*100).toFixed(1)}%`
-      : `${dt.getMonth()+1}/${dt.getDate()} ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')} ・ ${esc(MODE_LABEL[d.mode] || d.mode)}<br><b>${d.spd}</b> ${unit} ・ 正確率 ${(d.acc*100).toFixed(1)}%`;
+      ? `${d.label} ・ ${d.n}回の平均<br><b>${val(d)}</b> ${unit} ・ 正確率 ${(d.acc*100).toFixed(1)}%`
+      : `${dt.getMonth()+1}/${dt.getDate()} ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')} ・ ${esc(MODE_LABEL[d.mode] || d.mode)}<br><b>${val(d)}</b> ${unit} ・ 正確率 ${(d.acc*100).toFixed(1)}%`;
     tip.hidden = false;
     const scale = r.width / W;
     let left = px * scale + 12; if (left + tip.offsetWidth > r.width) left = px * scale - tip.offsetWidth - 12;
@@ -1192,7 +1334,7 @@ function renderTable(){
   if (!rows.length) { $('#histTbl').innerHTML = '<tr><td class="empty">まだ記録がありません。</td></tr>'; return; }
   $('#histTbl').innerHTML = '<tr><th>日時</th><th>モード</th><th>速度</th><th>正確率</th><th>時間</th><th>ミス</th></tr>' +
     rows.map(r => { const d = new Date(r.t); const ime = r.mode.startsWith('ime');
-      return `<tr><td>${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}</td><td>${esc(MODE_LABEL[r.mode] || r.mode)}</td><td>${r.spd} ${ime ? '字/分' : '打/分'}</td><td>${(r.acc*100).toFixed(1)}%</td><td>${fmtTime(r.sec)}</td><td>${r.miss}</td></tr>`; }).join('');
+      return `<tr><td>${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}</td><td>${esc(MODE_LABEL[r.mode] || r.mode)}</td><td>${r.mode.startsWith('rush:') ? (r.w || 0) + '語 ・ ' + r.spd + ' 打/分' : r.spd + ' ' + (ime ? '字/分' : '打/分')}</td><td>${(r.acc*100).toFixed(1)}%</td><td>${fmtTime(r.sec)}</td><td>${r.miss}</td></tr>`; }).join('');
 }
 function renderRecords(){ renderChart(); renderWeakList(); renderKeyboard(); renderTable(); }
 
@@ -1230,7 +1372,7 @@ $('#impFile').addEventListener('change', e => {
       if (!h || typeof h.t !== 'number' || typeof h.mode !== 'string' || typeof h.spd !== 'number') return;
       if (have.has(h.t + '|' + h.mode)) return;
       have.add(h.t + '|' + h.mode);
-      DB.history.push({t:h.t, mode:h.mode, spd:h.spd, acc:+h.acc || 0, sec:+h.sec || 0, miss:+h.miss || 0, ...(DB.account ? {u:true} : {})}); added++;
+      DB.history.push({t:h.t, mode:h.mode, spd:h.spd, acc:+h.acc || 0, sec:+h.sec || 0, miss:+h.miss || 0, ...(Number.isInteger(h.w) && h.w > 0 ? {w:h.w} : {}), ...(DB.account ? {u:true} : {})}); added++;
     });
     DB.history.sort((a, b) => a.t - b.t);
     if (DB.history.length > HIST_MAX) DB.history = DB.history.slice(-HIST_MAX);

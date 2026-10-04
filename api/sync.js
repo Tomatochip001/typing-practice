@@ -16,13 +16,14 @@ const int = (v, min, max) => num(v, min, max) ? Math.round(v) : null;
 
 // 範囲外の値は保存せずに捨てる(捨てた分は、端末側のローカル記録には残る)
 function cleanRuns(list, now) {
-  const out = { t: [], mode: [], spd: [], acc: [], sec: [], miss: [] };
+  const out = { t: [], mode: [], spd: [], acc: [], sec: [], miss: [], w: [] };
   if (!Array.isArray(list)) return out;
   for (const r of list.slice(0, MAX_RUNS_IN)) {
     if (!r || typeof r.mode !== 'string' || !/^[a-z]{1,10}(:[a-z]{1,10})?$/.test(r.mode)) continue;
     const t = int(r.t, MIN_T, now + DAY), spd = int(r.spd, 0, 3000), sec = int(r.sec, 0, 86400), miss = int(r.miss, 0, 100000);
-    if (t === null || spd === null || sec === null || miss === null || !num(r.acc, 0, 1)) continue;
-    out.t.push(t); out.mode.push(r.mode); out.spd.push(spd); out.acc.push(r.acc); out.sec.push(sec); out.miss.push(miss);
+    const w = r.w == null ? 0 : int(r.w, 0, 100000); // ラッシュの語数。無いときは0
+    if (t === null || spd === null || sec === null || miss === null || w === null || !num(r.acc, 0, 1)) continue;
+    out.t.push(t); out.mode.push(r.mode); out.spd.push(spd); out.acc.push(r.acc); out.sec.push(sec); out.miss.push(miss); out.w.push(w);
   }
   return out;
 }
@@ -73,10 +74,10 @@ module.exports = api('POST', async (req, res, body) => {
 
   const runs = cleanRuns(body.runs, nowMs), keys = cleanKeys(body.kd);
   if (runs.t.length) {
-    await sql`INSERT INTO runs (user_id, t, mode, spd, acc, sec, miss)
-              SELECT ${uid}, t, mode, spd, acc, sec, miss
-              FROM unnest(${runs.t}::bigint[], ${runs.mode}::text[], ${runs.spd}::int[], ${runs.acc}::float8[], ${runs.sec}::int[], ${runs.miss}::int[])
-                   AS x(t, mode, spd, acc, sec, miss)
+    await sql`INSERT INTO runs (user_id, t, mode, spd, acc, sec, miss, score)
+              SELECT ${uid}, t, mode, spd, acc, sec, miss, score
+              FROM unnest(${runs.t}::bigint[], ${runs.mode}::text[], ${runs.spd}::int[], ${runs.acc}::float8[], ${runs.sec}::int[], ${runs.miss}::int[], ${runs.w}::int[])
+                   AS x(t, mode, spd, acc, sec, miss, score)
               ON CONFLICT (user_id, t, mode) DO NOTHING`;
   }
   if (keys.k.length) {
@@ -115,7 +116,7 @@ module.exports = api('POST', async (req, res, body) => {
   }
 
   const after = int(body.after, 0, 9e15) || 0;
-  const rows = await sql`SELECT id, t, mode, spd, acc, sec, miss FROM runs WHERE user_id = ${uid} AND id > ${after} ORDER BY id LIMIT ${PAGE + 1}`;
+  const rows = await sql`SELECT id, t, mode, spd, acc, sec, miss, score FROM runs WHERE user_id = ${uid} AND id > ${after} ORDER BY id LIMIT ${PAGE + 1}`;
   const more = rows.length > PAGE;
   const page = more ? rows.slice(0, PAGE) : rows;
   const keyRows = await sql`SELECT k, n, m, t, c FROM key_stats WHERE user_id = ${uid}`;
@@ -124,7 +125,7 @@ module.exports = api('POST', async (req, res, body) => {
   const keyOut = {};
   keyRows.forEach(r => { keyOut[r.k] = { n: Number(r.n), m: Number(r.m), t: Number(r.t), c: Number(r.c) }; });
   send(res, 200, {
-    runs: page.map(r => ({ t: Number(r.t), mode: r.mode, spd: r.spd, acc: r.acc, sec: r.sec, miss: r.miss })),
+    runs: page.map(r => ({ t: Number(r.t), mode: r.mode, spd: r.spd, acc: r.acc, sec: r.sec, miss: r.miss, ...(r.score ? { w: r.score } : {}) })),
     cursor: page.length ? Number(page[page.length - 1].id) : after,
     more,
     keys: keyOut,
