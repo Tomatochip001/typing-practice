@@ -78,6 +78,26 @@ select{font:inherit;font-size:14px;color:var(--ink);background:var(--panel);bord
 #body{min-width:0}
 .code{font-family:var(--f-mono);font-size:17px;line-height:1.8;white-space:pre;overflow-x:auto;margin:0;padding:6px 2px}
 .done{color:var(--ok)}
+.ask{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 14px;border:1px solid var(--line);border-radius:8px;padding:8px 12px;margin-bottom:6px;font-size:15px}
+.ask .ja{color:var(--muted)}.ask .w{font-family:var(--f-mono);font-size:20px;font-weight:700}
+.ask .conv{background:var(--accent-soft);color:var(--accent);border-radius:999px;padding:1px 10px;font-size:13px;font-weight:700}
+.bugbox{border:1px solid var(--line);border-radius:8px;padding:6px 12px 8px;margin-bottom:6px}
+.bugbox .hd{font-size:12px;color:var(--muted);margin-bottom:2px}.bugbox .hd b{color:var(--bad)}
+.bugbox pre{font-family:var(--f-mono);font-size:15px;line-height:1.6;margin:0;overflow-x:auto;color:var(--muted)}
+.bugbox .bl{background:color-mix(in srgb,var(--bad) 18%,transparent);color:var(--ink);display:inline-block;min-width:100%}
+.prj{border:1px solid var(--line);border-radius:8px;padding:8px 12px;margin-bottom:6px;display:flex;flex-direction:column;gap:8px}
+.prj .sym{font-size:14px;line-height:1.6}.prj .sym b{color:var(--bad)}.prj .sym pre{font-family:var(--f-mono);font-size:12px;margin:4px 0 0;white-space:pre-wrap;color:var(--muted)}
+.prj .tree{font-family:var(--f-mono);font-size:12px;color:var(--muted)}
+.prj .fn{font-family:var(--f-mono);font-size:12px;color:var(--accent);font-weight:700}
+.prj .files{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:8px}
+.prj .f{border:1px solid var(--line);border-radius:6px;padding:4px 8px;min-width:0}
+.prj .f pre{font-family:var(--f-mono);font-size:12px;line-height:1.5;margin:2px 0 0;overflow-x:auto;max-height:230px;color:var(--ink)}
+.pick{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:4px}
+.pick span{font-size:14px;font-weight:700}.pick .btn{font-family:var(--f-mono);font-size:13px}
+.code.rush{font-size:44px;text-align:center;padding:26px 4px}
+.lives{color:var(--bad);letter-spacing:.12em}
+.rush-ready{text-align:center;color:var(--muted);font-size:13px;margin:0}
+.newbest{display:inline-block;background:var(--accent);color:var(--on-accent);border-radius:999px;padding:1px 12px;font-size:13px;font-weight:700;margin-left:8px;vertical-align:middle}
 .retry-tag{align-self:flex-start;font-size:12px;color:var(--accent);background:var(--accent-soft);border-radius:999px;padding:1px 10px;margin-bottom:2px;display:inline-block}
 .done .ng{color:var(--bad);text-decoration:underline wavy;text-underline-offset:4px}
 .rest{color:var(--muted)}
@@ -201,6 +221,9 @@ section.set h3{font-size:15px;margin:0 0 8px}
       <button role="tab" data-mode="roma">ローマ字</button>
       <button role="tab" data-mode="ime">IME変換</button>
       <button role="tab" data-mode="weak">苦手特訓</button>
+      <button role="tab" data-mode="rush">ラッシュ</button>
+      <button role="tab" data-mode="bug">バグ修正</button>
+      <button role="tab" data-mode="name">命名規則</button>
       <button role="tab" data-mode="rec">記録</button>
     </nav>
   </header>
@@ -210,6 +233,9 @@ section.set h3{font-size:15px;margin:0 0 8px}
     <div class="controls" id="ctl-code">
       <label>言語<select id="selCode">
         <option value="cs">C# (Unity)</option><option value="py">Python</option><option value="js">JavaScript</option>
+        <option value="ts">TypeScript</option><option value="java">Java</option><option value="go">Go</option><option value="rust">Rust</option>
+        <option value="c">C</option><option value="cpp">C++</option><option value="kt">Kotlin</option><option value="swift">Swift</option>
+        <option value="php">PHP</option><option value="rb">Ruby</option><option value="sql">SQL</option><option value="sh">シェル (Bash)</option>
         <option value="sym">記号ラッシュ</option><option value="custom">自作コード</option></select></label>
       <label class="chk"><input type="checkbox" id="optIndent" checked> インデントを自動で入力</label>
     </div>
@@ -223,7 +249,22 @@ section.set h3{font-size:15px;margin:0 0 8px}
         <option value="prompt">AIプロンプト</option><option value="daily">日常・連絡</option><option value="custom">自作(1行=1問)</option></select></label>
     </div>
     <div class="controls" id="ctl-weak"><span id="weakInfo"></span></div>
+    <div class="controls" id="ctl-rush">
+      <label>ルール<select id="selRule"><option value="ta">タイムアタック(60秒)</option><option value="sv">サバイバル(ミス3回で終了)</option></select></label>
+      <label>言語<select id="selRushLang"><option value="cs">C# (Unity)</option><option value="py">Python</option><option value="js">JavaScript</option><option value="all">すべて</option></select></label>
+      <span class="hint" id="rushBest"></span>
+    </div>
+    <div class="controls" id="ctl-bug">
+      <label>言語<select id="selBug"><option value="cs">C# (Unity)</option><option value="py">Python</option><option value="js">JavaScript</option></select></label>
+      <label>種類<select id="selBugKind"><option value="one">1か所のバグ</option><option value="prj">プロジェクト調査(症状から原因を探す)</option></select></label>
+      <span class="hint" id="bugHint"></span>
+    </div>
+    <div class="controls" id="ctl-name">
+      <label>言語<select id="selName"><option value="cs">C# (Unity)</option><option value="py">Python</option><option value="js">JavaScript</option></select></label>
+      <span class="hint">単語を、指定された命名規則の名前に直して打ちます</span>
+    </div>
     <div class="controls" id="ctl-common">
+      <label id="lblLv">難易度<select id="selLv"><option value="1">かんたん</option><option value="2">ふつう</option><option value="3">むずかしい</option></select></label>
       <label id="lblLen">長さ<select id="selLen"><option value="s">短め</option><option value="n">標準</option><option value="l">長め</option></select></label>
       <label class="chk" id="lblSkip"><input type="checkbox" id="optSkip"> ミスしても先に進む</label>
       <label class="chk" id="lblRetry"><input type="checkbox" id="optRetry"> ミスした行をもう一度出す</label>
@@ -236,10 +277,12 @@ section.set h3{font-size:15px;margin:0 0 8px}
 
     <div class="stage" id="stage" tabindex="0">
       <div class="hud">
-        <span>問題 <b id="hNum">1/3</b></span>
+        <span><span id="hNumLbl">問題</span> <b id="hNum">1/3</b></span>
         <span>速度 <b id="hSpd">0</b><i id="hUnit">打/分</i></span>
         <span>正確率 <b id="hAcc">-</b></span>
-        <span>時間 <b id="hTime">0:00</b></span>
+        <span><span id="hTimeLbl">時間</span> <b id="hTime">0:00</b></span>
+        <span id="hLivesWrap" hidden>ライフ <b id="hLives" class="lives"></b></span>
+        <span id="hComboWrap" hidden>連続 <b id="hCombo">0</b><i>語</i></span>
       </div>
       <div class="bar"><i id="prog"></i></div>
       <div id="warn" class="warn" hidden>IMEがオンになっています。半角英数に切り替えてください(半角/全角キー)。</div>
@@ -253,7 +296,7 @@ section.set h3{font-size:15px;margin:0 0 8px}
     <div class="rec-grid">
       <div class="sec">
         <div class="sec-h"><h2>速度の推移</h2>
-          <span><select id="selHist"><option value="code">コード</option><option value="roma">ローマ字</option><option value="ime">IME変換</option><option value="weak">苦手特訓</option></select>
+          <span><select id="selHist"><option value="code">コード</option><option value="roma">ローマ字</option><option value="ime">IME変換</option><option value="weak">苦手特訓</option><option value="rush-ta">ラッシュ(タイムアタック)</option><option value="rush-sv">ラッシュ(サバイバル)</option><option value="bug">バグ修正(1か所)</option><option value="prj">バグ調査(プロジェクト)</option><option value="name">命名規則</option></select>
           <select id="selGran"><option value="run">回ごと</option><option value="day">日ごと</option><option value="all">全期間</option></select></span></div>
         <div id="chart" class="chart"></div>
       </div>
@@ -515,6 +558,1456 @@ print(f"{name!r:>10}")
 return !(a || b) && c;
 i += 1; j -= 2; k *= 3;
 <div class="box">{text}</div>
+@@rush_cs
+abstract as base bool break byte case catch char checked class const continue decimal default delegate do double
+else enum event explicit extern false finally fixed float for foreach goto if implicit in int interface internal is
+lock long namespace new null object operator out override params private protected public readonly ref return sbyte
+sealed short sizeof static string struct switch this throw true try typeof uint ulong unchecked unsafe ushort using
+virtual void volatile while var async await yield get set value nameof partial
+MonoBehaviour GameObject Transform Rigidbody Collider Vector3 Quaternion Camera Update Start Awake FixedUpdate
+LateUpdate OnEnable OnDisable OnCollisionEnter OnTriggerEnter Instantiate Destroy SerializeField transform.position
+Time.deltaTime Input.GetKey KeyCode Mathf.Clamp Debug.Log GetComponent AddForce velocity magnitude AudioSource
+ParticleSystem Coroutine IEnumerator WaitForSeconds
+@@rush_py
+and as assert async await break class continue def del elif else except finally for from global if import in is
+lambda None nonlocal not or pass raise return True False try while with yield print len range list dict set tuple
+str int float bool self __init__ enumerate zip map filter sorted open isinstance input super type round sum min max abs
+@@rush_js
+break case catch class const continue debugger default delete do else export extends false finally for function if
+import in instanceof let new null return super switch this throw true try typeof undefined var void while with
+yield async await console.log Promise Array Object JSON Math setTimeout fetch document window addEventListener
+querySelector forEach map filter reduce push
+@@bug_cs
+#lv 1
+比較するところが「=」(代入)になっている
+---
+if (speed = maxSpeed)
+{
+    speed = 0f;
+}
+---
+if (speed == maxSpeed)
+{
+    speed = 0f;
+}
+@@bug_cs
+#lv 1
+行の終わりのセミコロンが足りない
+---
+void Start()
+{
+    rb = GetComponent<Rigidbody>()
+}
+---
+void Start()
+{
+    rb = GetComponent<Rigidbody>();
+}
+@@bug_cs
+#lv 2
+配列の範囲を1つ超えてしまう
+---
+for (int i = 0; i <= items.Length; i++)
+{
+    Debug.Log(items[i]);
+}
+---
+for (int i = 0; i < items.Length; i++)
+{
+    Debug.Log(items[i]);
+}
+@@bug_cs
+#lv 1
+型の名前の大文字小文字が違う
+---
+void Reset()
+{
+    transform.position = new vector3(0, 1, 0);
+}
+---
+void Reset()
+{
+    transform.position = new Vector3(0, 1, 0);
+}
+@@bug_cs
+#lv 2
+フレームレートで速さが変わってしまう
+---
+void Update()
+{
+    transform.Translate(Vector3.forward * speed);
+}
+---
+void Update()
+{
+    transform.Translate(Vector3.forward * speed * Time.deltaTime);
+}
+@@bug_cs
+#lv 2
+タグの比較が「=」になっている
+---
+void OnTriggerEnter(Collider other)
+{
+    if (other.CompareTag = "Goal")
+    {
+        Finish();
+    }
+}
+---
+void OnTriggerEnter(Collider other)
+{
+    if (other.CompareTag("Goal"))
+    {
+        Finish();
+    }
+}
+@@bug_cs
+#lv 1
+文字列の閉じる「"」が足りない
+---
+void Finish()
+{
+    Debug.Log("Goal!);
+}
+---
+void Finish()
+{
+    Debug.Log("Goal!");
+}
+@@bug_cs
+#lv 2
+小数の数値に f が付いていない
+---
+private float maxSpeed = 30.5;
+private float turnRate = 1.5;
+---
+private float maxSpeed = 30.5f;
+private float turnRate = 1.5f;
+@@bug_cs
+#lv 2
+メソッドの呼び出しにカッコがない
+---
+void Update()
+{
+    if (Input.GetKeyDown(KeyCode.R))
+    {
+        ResetCar;
+    }
+}
+---
+void Update()
+{
+    if (Input.GetKeyDown(KeyCode.R))
+    {
+        ResetCar();
+    }
+}
+@@bug_py
+#lv 1
+比較するところが「=」(代入)になっている
+---
+if score = 100:
+    print("perfect")
+---
+if score == 100:
+    print("perfect")
+@@bug_py
+#lv 1
+def の行の終わりに「:」がない
+---
+def add(a, b)
+    return a + b
+---
+def add(a, b):
+    return a + b
+@@bug_py
+#lv 2
+リストの範囲を1つ超えてしまう
+---
+for i in range(len(items) + 1):
+    print(items[i])
+---
+for i in range(len(items)):
+    print(items[i])
+@@bug_py
+#lv 1
+インデント(字下げ)が足りない
+---
+def greet(name):
+print("Hello, " + name)
+---
+def greet(name):
+    print("Hello, " + name)
+@@bug_py
+#lv 2
+数値と文字列を、そのまま足している
+---
+score = 120
+print("score: " + score)
+---
+score = 120
+print("score: " + str(score))
+@@bug_py
+#lv 2
+ループが終わらない
+---
+count = 0
+while count < 10:
+    print(count)
+---
+count = 0
+while count < 10:
+    print(count)
+    count += 1
+@@bug_py
+#lv 2
+「どちらか」の判定の書き方が間違っている
+---
+if name == "Alice" or "Bob":
+    print("known")
+---
+if name in ("Alice", "Bob"):
+    print("known")
+@@bug_py
+#lv 2
+関数が値を返していない
+---
+def square(n):
+    n * n
+---
+def square(n):
+    return n * n
+@@bug_py
+#lv 1
+「True」の大文字小文字が違う
+---
+def is_ready():
+    return true
+---
+def is_ready():
+    return True
+@@bug_js
+#lv 1
+比較するところが「=」(代入)になっている
+---
+if (lives = 0) {
+  gameOver();
+}
+---
+if (lives === 0) {
+  gameOver();
+}
+@@bug_js
+#lv 1
+const の変数に、あとから足している
+---
+const total = 0;
+total += 5;
+---
+let total = 0;
+total += 5;
+@@bug_js
+#lv 1
+閉じカッコが足りない
+---
+items.forEach(item => {
+  console.log(item);
+};
+---
+items.forEach(item => {
+  console.log(item);
+});
+@@bug_js
+#lv 2
+for の行の終わりに余計な「;」がある
+---
+for (let i = 0; i < arr.length; i++);
+{
+  console.log(arr[i]);
+}
+---
+for (let i = 0; i < arr.length; i++)
+{
+  console.log(arr[i]);
+}
+@@bug_js
+#lv 2
+アロー関数が値を返していない
+---
+const doubled = [1, 2, 3].map(n => { n * 2 });
+---
+const doubled = [1, 2, 3].map(n => n * 2);
+@@bug_js
+#lv 2
+関数を、その場で呼び出してしまっている
+---
+btn.addEventListener("click", handleClick());
+---
+btn.addEventListener("click", handleClick);
+@@bug_js
+#lv 2
+文字列のまま足している
+---
+const input = "5";
+const sum = input + 3;
+---
+const input = "5";
+const sum = Number(input) + 3;
+@@bug_js
+#lv 2
+関数が値を返していない
+---
+function add(a, b) {
+  a + b;
+}
+---
+function add(a, b) {
+  return a + b;
+}
+@@bug_js
+#lv 1
+スペルが間違っている
+---
+if (typeof value === "undefind") {
+  value = 0;
+}
+---
+if (typeof value === "undefined") {
+  value = 0;
+}
+@@name
+move speed|移動速度
+max speed|最高速度
+current lap|現在の周回数
+lap time|ラップタイム
+best time|ベストタイム
+player name|プレイヤー名
+car controller|車の制御
+is finished|ゴールしたか
+start position|スタート位置
+goal line|ゴールライン
+checkpoint count|チェックポイント数
+steering angle|ハンドルの角度
+brake force|ブレーキの力
+engine power|エンジンの出力
+fuel amount|燃料の量
+race manager|レースの管理
+score board|得点表
+game over|ゲームオーバー
+user input|ユーザーの入力
+total score|合計得点
+high score|ハイスコア
+is paused|一時停止中か
+spawn point|出現位置
+enemy count|敵の数
+jump height|ジャンプの高さ
+life count|残りライフ
+load scene|シーンの読み込み
+save data|セーブデータ
+get speed|速度を取得
+set volume|音量を設定
+update timer|タイマーの更新
+reset position|位置のリセット
+calculate damage|ダメージの計算
+play sound|音を鳴らす
+countdown time|カウントダウンの時間
+camera offset|カメラのずれ
+turn rate|曲がりやすさ
+wheel radius|タイヤの半径
+rank list|順位の一覧
+final result|最終結果
+@@ts
+const name: string = "dojo";
+console.log(name);
+@@ts
+interface Car {
+    id: number;
+    name: string;
+}
+@@ts
+function add(a: number, b: number): number {
+    return a + b;
+}
+@@ts
+type Result<T> = { ok: true; value: T } | { ok: false; error: string };
+@@ts
+export async function fetchUser(id: number): Promise<User> {
+    const res = await fetch(`/api/users/${id}`);
+    if (!res.ok) throw new Error("failed");
+    return res.json();
+}
+@@ts
+const scores = new Map<string, number>();
+scores.set("a", 10);
+for (const [k, v] of scores) {
+    console.log(`${k}: ${v}`);
+}
+@@ts
+class Timer {
+    private count = 0;
+
+    constructor(private readonly limit: number) {}
+
+    tick(): boolean {
+        this.count++;
+        return this.count >= this.limit;
+    }
+}
+@@java
+System.out.println("Hello, dojo");
+@@java
+int[] nums = {3, 1, 2};
+Arrays.sort(nums);
+@@java
+public static int max(int a, int b) {
+    return a > b ? a : b;
+}
+@@java
+List<String> names = new ArrayList<>();
+names.add("Alice");
+for (String n : names) {
+    System.out.println(n);
+}
+@@java
+public class Car {
+    private final String name;
+
+    public Car(String name) {
+        this.name = name;
+    }
+
+    public String getName() {
+        return name;
+    }
+}
+@@java
+try {
+    int v = Integer.parseInt(text);
+    System.out.println(v);
+} catch (NumberFormatException e) {
+    System.err.println("invalid: " + text);
+}
+@@java
+Map<String, Integer> counts = new HashMap<>();
+for (String w : words) {
+    counts.merge(w, 1, Integer::sum);
+}
+@@go
+fmt.Println("hello, dojo")
+@@go
+x := 10
+y := 20
+fmt.Println(x + y)
+@@go
+func add(a int, b int) int {
+    return a + b
+}
+@@go
+for i := 0; i < 5; i++ {
+    fmt.Println(i)
+}
+@@go
+type Car struct {
+    Name  string
+    Speed int
+}
+
+func (c Car) Info() string {
+    return fmt.Sprintf("%s: %d", c.Name, c.Speed)
+}
+@@go
+file, err := os.Open("data.txt")
+if err != nil {
+    log.Fatal(err)
+}
+defer file.Close()
+@@go
+ch := make(chan int)
+go func() {
+    for i := 0; i < 3; i++ {
+        ch <- i
+    }
+    close(ch)
+}()
+for v := range ch {
+    fmt.Println(v)
+}
+@@rust
+println!("hello, dojo");
+@@rust
+let mut count = 0;
+count += 1;
+@@rust
+fn add(a: i32, b: i32) -> i32 {
+    a + b
+}
+@@rust
+let nums = vec![1, 2, 3];
+let sum: i32 = nums.iter().sum();
+println!("{}", sum);
+@@rust
+struct Car {
+    name: String,
+    speed: u32,
+}
+
+impl Car {
+    fn new(name: &str) -> Self {
+        Car { name: name.to_string(), speed: 0 }
+    }
+}
+@@rust
+match value {
+    Some(v) if v > 0 => println!("positive: {}", v),
+    Some(_) => println!("non-positive"),
+    None => println!("none"),
+}
+@@rust
+use std::collections::HashMap;
+
+fn main() {
+    let mut map = HashMap::new();
+    map.insert("a", 1);
+    if let Some(v) = map.get("a") {
+        println!("{}", v);
+    }
+}
+@@c
+printf("hello, dojo\n");
+@@c
+int a = 3;
+int b = 4;
+printf("%d\n", a + b);
+@@c
+int max(int a, int b)
+{
+    return a > b ? a : b;
+}
+@@c
+for (int i = 0; i < 5; i++) {
+    printf("%d\n", i);
+}
+@@c
+#include <stdio.h>
+
+int main(void)
+{
+    puts("hello");
+    return 0;
+}
+@@c
+typedef struct {
+    char name[32];
+    int speed;
+} Car;
+@@c
+char *dup = malloc(strlen(src) + 1);
+if (dup == NULL) {
+    return NULL;
+}
+strcpy(dup, src);
+@@cpp
+std::cout << "hello, dojo" << std::endl;
+@@cpp
+std::vector<int> v = {3, 1, 2};
+std::sort(v.begin(), v.end());
+@@cpp
+int add(int a, int b) {
+    return a + b;
+}
+@@cpp
+for (const auto& n : nums) {
+    std::cout << n << "\n";
+}
+@@cpp
+class Car {
+public:
+    explicit Car(std::string name) : name_(std::move(name)) {}
+    const std::string& name() const { return name_; }
+
+private:
+    std::string name_;
+};
+@@cpp
+auto it = std::find_if(v.begin(), v.end(), [](int x) { return x > 10; });
+if (it != v.end()) {
+    std::cout << *it << std::endl;
+}
+@@cpp
+template <typename T>
+T clamp(T value, T lo, T hi) {
+    return value < lo ? lo : (value > hi ? hi : value);
+}
+@@kt
+println("hello, dojo")
+@@kt
+val name = "dojo"
+var count = 0
+@@kt
+fun add(a: Int, b: Int): Int = a + b
+@@kt
+for (i in 0 until 5) {
+    println(i)
+}
+@@kt
+data class Car(val name: String, var speed: Int = 0)
+@@kt
+val names = listOf("a", "bb", "ccc")
+val lens = names.map { it.length }.filter { it > 1 }
+@@kt
+class Timer(private val limit: Int) {
+    private var count = 0
+
+    fun tick(): Boolean {
+        count++
+        return count >= limit
+    }
+}
+@@swift
+print("hello, dojo")
+@@swift
+let name = "dojo"
+var count = 0
+@@swift
+func add(_ a: Int, _ b: Int) -> Int {
+    return a + b
+}
+@@swift
+for i in 0..<5 {
+    print(i)
+}
+@@swift
+struct Car {
+    var name: String
+    var speed = 0
+}
+@@swift
+if let value = Int(text) {
+    print(value)
+} else {
+    print("invalid")
+}
+@@swift
+class Timer {
+    private var count = 0
+    private let limit: Int
+
+    init(limit: Int) {
+        self.limit = limit
+    }
+
+    func tick() -> Bool {
+        count += 1
+        return count >= limit
+    }
+}
+@@php
+<?php
+echo "hello, dojo";
+@@php
+$name = "dojo";
+$count = 0;
+$count++;
+@@php
+function add(int $a, int $b): int
+{
+    return $a + $b;
+}
+@@php
+foreach ($names as $name) {
+    echo $name . "\n";
+}
+@@php
+$user = ["name" => "Alice", "age" => 20];
+echo $user["name"];
+@@php
+class Car
+{
+    public function __construct(private string $name)
+    {
+    }
+
+    public function getName(): string
+    {
+        return $this->name;
+    }
+}
+@@php
+$stmt = $pdo->prepare("SELECT * FROM users WHERE id = :id");
+$stmt->execute(["id" => $id]);
+$row = $stmt->fetch(PDO::FETCH_ASSOC);
+@@rb
+puts "hello, dojo"
+@@rb
+name = "dojo"
+count = 0
+count += 1
+@@rb
+def add(a, b)
+  a + b
+end
+@@rb
+5.times do |i|
+  puts i
+end
+@@rb
+names = %w[alice bob carol]
+names.each_with_index do |n, i|
+  puts "#{i}: #{n}"
+end
+@@rb
+class Car
+  attr_reader :name
+
+  def initialize(name)
+    @name = name
+  end
+
+  def to_s
+    "Car(#{@name})"
+  end
+end
+@@rb
+scores = { alice: 10, bob: 7 }
+best = scores.max_by { |_, v| v }
+puts best.first
+@@sql
+SELECT * FROM users;
+@@sql
+SELECT name, age FROM users WHERE age >= 18;
+@@sql
+INSERT INTO users (name, age) VALUES ('Alice', 20);
+@@sql
+UPDATE users SET age = age + 1 WHERE id = 1;
+@@sql
+SELECT u.name, COUNT(o.id) AS orders
+FROM users u
+LEFT JOIN orders o ON o.user_id = u.id
+GROUP BY u.name
+ORDER BY orders DESC;
+@@sql
+CREATE TABLE cars (
+    id SERIAL PRIMARY KEY,
+    name TEXT NOT NULL,
+    speed INT DEFAULT 0
+);
+@@sql
+WITH best AS (
+    SELECT user_id, MAX(score) AS top
+    FROM runs
+    GROUP BY user_id
+)
+SELECT u.name, b.top
+FROM best b
+JOIN users u ON u.id = b.user_id
+ORDER BY b.top DESC
+LIMIT 10;
+@@sh
+echo "hello, dojo"
+@@sh
+name="dojo"
+echo "$name"
+@@sh
+for f in *.txt; do
+    echo "$f"
+done
+@@sh
+if [ -f "$file" ]; then
+    echo "exists"
+else
+    echo "missing"
+fi
+@@sh
+count=$(ls | wc -l)
+echo "files: $count"
+@@sh
+#!/bin/bash
+set -euo pipefail
+
+cd "$(dirname "$0")"
+npm ci
+npm run build
+@@sh
+while read -r line; do
+    echo "${line%%:*}"
+done < input.txt
+@@bug_cs
+#lv 3
+---
+foreach (var e in enemies)
+{
+    if (e.hp <= 0) enemies.Remove(e);
+}
+---
+enemies.RemoveAll(e => e.hp <= 0);
+@@bug_cs
+#lv 3
+---
+int current = 3;
+int max = 4;
+float ratio = current / max;
+---
+int current = 3;
+int max = 4;
+float ratio = (float)current / max;
+@@bug_cs
+#lv 3
+---
+if (target.name == "Goal" && target != null)
+{
+    Finish();
+}
+---
+if (target != null && target.name == "Goal")
+{
+    Finish();
+}
+@@bug_cs
+#lv 3
+---
+float t = 0f;
+while (t != 1f)
+{
+    t += 0.1f;
+}
+---
+float t = 0f;
+while (t < 1f)
+{
+    t += 0.1f;
+}
+@@bug_py
+#lv 3
+---
+def add_item(item, items=[]):
+    items.append(item)
+    return items
+---
+def add_item(item, items=None):
+    if items is None:
+        items = []
+    items.append(item)
+    return items
+@@bug_py
+#lv 3
+---
+funcs = [lambda: i for i in range(3)]
+print([f() for f in funcs])
+---
+funcs = [lambda i=i: i for i in range(3)]
+print([f() for f in funcs])
+@@bug_py
+#lv 3
+---
+for n in nums:
+    if n % 2 == 0:
+        nums.remove(n)
+---
+nums = [n for n in nums if n % 2 != 0]
+@@bug_py
+#lv 3
+---
+x = 0.0
+while x != 1.0:
+    x += 0.1
+---
+x = 0.0
+while x < 1.0:
+    x += 0.1
+@@bug_js
+#lv 3
+---
+for (var i = 0; i < 3; i++) {
+  setTimeout(() => console.log(i), 0);
+}
+---
+for (let i = 0; i < 3; i++) {
+  setTimeout(() => console.log(i), 0);
+}
+@@bug_js
+#lv 3
+---
+async function show() {
+  const data = fetchData();
+  console.log(data.name);
+}
+---
+async function show() {
+  const data = await fetchData();
+  console.log(data.name);
+}
+@@bug_js
+#lv 3
+---
+class Timer {
+  start() {
+    setInterval(function () {
+      this.count++;
+    }, 1000);
+  }
+}
+---
+class Timer {
+  start() {
+    setInterval(() => {
+      this.count++;
+    }, 1000);
+  }
+}
+@@bug_js
+#lv 3
+---
+let t = 0;
+while (t !== 1) {
+  t += 0.1;
+}
+---
+let t = 0;
+while (t < 1) {
+  t += 0.1;
+}
+@@prj_cs
+#lv 1
+#hint 周回数を数えているファイルを見てみよう
+#symptom ゴールラインを1回通っただけなのに、周回数が「2、4、6…」と2ずつ増える。
+#file Assets/Scripts/Checkpoint.cs
+public class Checkpoint : MonoBehaviour
+{
+    void OnTriggerEnter(Collider other)
+    {
+        if (other.CompareTag("Player"))
+            LapCounter.Instance.Pass(this);
+    }
+}
+#file Assets/Scripts/LapCounter.cs
+public class LapCounter : MonoBehaviour
+{
+    public static LapCounter Instance;
+    public int lap;
+
+    void Awake() { Instance = this; }
+
+    public void Pass(Checkpoint cp)
+    {
+        lap += 2;
+        Debug.Log($"Lap {lap}");
+    }
+}
+#fix
+// Assets/Scripts/LapCounter.cs
+public void Pass(Checkpoint cp)
+{
+    lap += 1;
+    Debug.Log($"Lap {lap}");
+}
+@@prj_cs
+#lv 1
+#hint エラーに出ている行のあるファイルを見てみよう
+#symptom 再生すると、車が動かず、コンソールに赤いエラーが出る。
+NullReferenceException: Object reference not set to an instance of an object
+CarController.FixedUpdate () (at Assets/Scripts/CarController.cs:6)
+#file Assets/Scripts/CarController.cs
+public class CarController : MonoBehaviour
+{
+    private Rigidbody rb;
+
+    void FixedUpdate()
+    {
+        rb.AddForce(transform.forward * 10f);
+    }
+}
+#file Assets/Scripts/SpeedMeter.cs
+public class SpeedMeter : MonoBehaviour
+{
+    public Rigidbody target;
+    public Text label;
+
+    void Update() { label.text = target.velocity.magnitude.ToString("F0"); }
+}
+#fix
+// Assets/Scripts/CarController.cs
+void Start()
+{
+    rb = GetComponent<Rigidbody>();
+}
+@@prj_cs
+#lv 2
+#symptom 「もう一度」ボタンでレースをやり直すと、前回のタイムが引き継がれて、0秒から始まらない。
+#file Assets/Scripts/Timer.cs
+public class Timer : MonoBehaviour
+{
+    public static float elapsed;
+
+    void Update()
+    {
+        elapsed += Time.deltaTime;
+    }
+}
+#file Assets/Scripts/GameManager.cs
+public class GameManager : MonoBehaviour
+{
+    public void Restart()
+    {
+        SceneManager.LoadScene("Race");
+    }
+}
+#file Assets/Scripts/HudView.cs
+public class HudView : MonoBehaviour
+{
+    public Text timeText;
+
+    void Update() { timeText.text = Timer.elapsed.ToString("F2"); }
+}
+#fix
+// Assets/Scripts/GameManager.cs
+public void Restart()
+{
+    Timer.elapsed = 0f;
+    SceneManager.LoadScene("Race");
+}
+@@prj_cs
+#lv 2
+#symptom アクセルを離しているのに、車がゆっくり勝手に前へ進む。ブレーキを踏むと止まる。
+#file Assets/Scripts/InputReader.cs
+public class InputReader : MonoBehaviour
+{
+    public float throttle;
+
+    void Update()
+    {
+        throttle = Input.GetAxis("Vertical");
+    }
+}
+#file Assets/Scripts/CarController.cs
+public class CarController : MonoBehaviour
+{
+    public InputReader input;
+    public float maxPower = 20f;
+    private Rigidbody rb;
+
+    void FixedUpdate()
+    {
+        float power = Mathf.Max(0.1f, input.throttle) * maxPower;
+        rb.AddForce(transform.forward * power);
+    }
+}
+#fix
+// Assets/Scripts/CarController.cs
+void FixedUpdate()
+{
+    float power = Mathf.Clamp01(input.throttle) * maxPower;
+    rb.AddForce(transform.forward * power);
+}
+@@prj_cs
+#lv 3
+#symptom タイトルに戻ってからもう一度レースを始めると、BGMが二重に流れる。何度も繰り返すと、どんどん重なる。
+#file Assets/Scripts/AudioManager.cs
+public class AudioManager : MonoBehaviour
+{
+    public static AudioManager Instance;
+
+    void Awake()
+    {
+        Instance = this;
+        DontDestroyOnLoad(gameObject);
+    }
+}
+#file Assets/Scripts/SceneLoader.cs
+public class SceneLoader : MonoBehaviour
+{
+    public void GoTitle() { SceneManager.LoadScene("Title"); }
+    public void GoRace() { SceneManager.LoadScene("Race"); }
+}
+#file Assets/Scripts/BgmPlayer.cs
+public class BgmPlayer : MonoBehaviour
+{
+    public AudioSource source;
+
+    void Start() { source.Play(); }
+}
+#fix
+// Assets/Scripts/AudioManager.cs
+void Awake()
+{
+    if (Instance != null)
+    {
+        Destroy(gameObject);
+        return;
+    }
+    Instance = this;
+    DontDestroyOnLoad(gameObject);
+}
+@@prj_cs
+#lv 3
+#symptom レースをやり直すたびに、ゴールで入るスコアが倍々に増える(1回目は100点、2回目は200点、3回目は300点…)。
+#file Assets/Scripts/GameEvents.cs
+public static class GameEvents
+{
+    public static event System.Action<int> OnGoal;
+
+    public static void RaiseGoal(int points) { OnGoal?.Invoke(points); }
+}
+#file Assets/Scripts/ScoreView.cs
+public class ScoreView : MonoBehaviour
+{
+    public Text label;
+    private int total;
+
+    void OnEnable()
+    {
+        GameEvents.OnGoal += Add;
+    }
+
+    void Add(int points)
+    {
+        total += points;
+        label.text = total.ToString();
+    }
+}
+#file Assets/Scripts/Goal.cs
+public class Goal : MonoBehaviour
+{
+    void OnTriggerEnter(Collider other)
+    {
+        GameEvents.RaiseGoal(100);
+    }
+}
+#fix
+// Assets/Scripts/ScoreView.cs
+void OnEnable()
+{
+    GameEvents.OnGoal += Add;
+}
+
+void OnDisable()
+{
+    GameEvents.OnGoal -= Add;
+}
+@@prj_py
+#lv 1
+#hint メッセージに書かれている行のファイルを見てみよう
+#symptom ランキングを表示しようとすると、エラーで止まる。
+TypeError: can only concatenate str (not "int") to str
+  File "report.py", line 2, in make_line
+#file report.py
+def make_line(name, score):
+    return name + ": " + score
+#file main.py
+from report import make_line
+
+for name, score in [("alice", 120), ("bob", 95)]:
+    print(make_line(name, score))
+#fix
+# report.py
+def make_line(name, score):
+    return name + ": " + str(score)
+@@prj_py
+#lv 1
+#hint 順位を表示している部分を見てみよう
+#symptom ランキングを表示すると、1位の人だけが表示されない。2位以降は正しく出る。
+#file ranking.py
+def show(rank):
+    for i in range(1, len(rank)):
+        print(f"{i}. {rank[i]}")
+#file main.py
+from ranking import show
+
+show(["alice", "bob", "carol"])
+#fix
+# ranking.py
+def show(rank):
+    for i, name in enumerate(rank, start=1):
+        print(f"{i}. {name}")
+@@prj_py
+#lv 2
+#symptom 2人のプレイヤーを作ったのに、片方がアイテムを拾うと、もう片方のバッグにも同じアイテムが入ってしまう。
+#file models.py
+class Player:
+    def __init__(self, name, bag=[]):
+        self.name = name
+        self.bag = bag
+
+    def pick(self, item):
+        self.bag.append(item)
+#file main.py
+from models import Player
+
+a = Player("alice")
+b = Player("bob")
+a.pick("key")
+print(b.bag)
+#fix
+# models.py
+class Player:
+    def __init__(self, name, bag=None):
+        self.name = name
+        self.bag = bag if bag is not None else []
+
+    def pick(self, item):
+        self.bag.append(item)
+@@prj_py
+#lv 2
+#symptom " alice " のように名前の前後に空白を付けて登録したユーザーが、あとから「alice」と入力してもログインできない。
+#file register.py
+def register(db, name, password):
+    name = name.strip().lower()
+    db[name] = password
+#file login.py
+def login(db, name, password):
+    name = name.lower()
+    return db.get(name) == password
+#file main.py
+db = {}
+register(db, " alice ", "pw")
+print(login(db, "alice", "pw"))
+#fix
+# login.py
+def login(db, name, password):
+    name = name.strip().lower()
+    return db.get(name) == password
+@@prj_py
+#lv 3
+#symptom 0.1円の商品を3つカートに入れて「合計 0.3円」と比べると、一致せず「金額が違います」と出る。
+#file cart.py
+def total_price(items):
+    total = 0
+    for price, qty in items:
+        total += price * qty
+    return total
+#file checkout.py
+from cart import total_price
+
+def check(items, expected):
+    if total_price(items) == expected:
+        return "OK"
+    return "金額が違います"
+#file main.py
+print(check([(0.1, 3)], 0.3))
+#fix
+# cart.py
+from decimal import Decimal
+
+def total_price(items):
+    total = Decimal("0")
+    for price, qty in items:
+        total += Decimal(str(price)) * qty
+    return total
+@@prj_py
+#lv 3
+#symptom 設定値を変更して保存しても、1時間たっても、画面には古い値が表示され続ける(有効期限は60秒のはず)。
+#file cache.py
+import time
+
+class Cache:
+    def __init__(self, ttl=60):
+        self.ttl = ttl
+        self.data = {}
+
+    def set(self, key, value):
+        self.data[key] = (value, time.time())
+
+    def get(self, key):
+        if key in self.data:
+            return self.data[key][0]
+        return None
+#file api.py
+def get_setting(cache, db, key):
+    value = cache.get(key)
+    if value is None:
+        value = db[key]
+        cache.set(key, value)
+    return value
+#fix
+# cache.py
+def get(self, key):
+    if key in self.data:
+        value, saved = self.data[key]
+        if time.time() - saved < self.ttl:
+            return value
+        del self.data[key]
+    return None
+@@prj_js
+#lv 1
+#hint 値を読み込んでいるファイルを見てみよう
+#symptom 画面を開くと、ベストスコアが表示されず、コンソールにエラーが出る。
+Uncaught TypeError: best.toFixed is not a function
+    at showBest (ui.js:3)
+#file store.js
+export function loadBest() {
+  return localStorage.getItem("best");
+}
+#file ui.js
+import { loadBest } from "./store.js";
+
+export function showBest(el) {
+  const best = loadBest();
+  el.textContent = best.toFixed(1);
+}
+#fix
+// store.js
+export function loadBest() {
+  return Number(localStorage.getItem("best") ?? 0);
+}
+@@prj_js
+#lv 1
+#hint HTML と JavaScript で、名前が一致しているか見てみよう
+#symptom 画面を開くと、スタートボタンが反応せず、コンソールにエラーが出る。
+Uncaught TypeError: Cannot read properties of null (reading 'addEventListener')
+    at main.js:2
+#file index.html
+<button id="start-btn">スタート</button>
+<p id="score">0</p>
+#file main.js
+import { startGame } from "./game.js";
+
+const btn = document.getElementById("startBtn");
+btn.addEventListener("click", startGame);
+#fix
+// main.js
+const btn = document.getElementById("start-btn");
+btn.addEventListener("click", startGame);
+@@prj_js
+#lv 2
+#symptom スタートボタンを何回か連打すると、タイマーがだんだん速く進むようになる。
+#file timer.js
+export class Timer {
+  constructor(onTick) {
+    this.onTick = onTick;
+    this.id = null;
+  }
+
+  start() {
+    this.id = setInterval(this.onTick, 1000);
+  }
+
+  stop() {
+    clearInterval(this.id);
+  }
+}
+#file main.js
+import { Timer } from "./timer.js";
+
+const timer = new Timer(() => console.log("tick"));
+document.getElementById("start").addEventListener("click", () => timer.start());
+#fix
+// timer.js
+start() {
+  this.stop();
+  this.id = setInterval(this.onTick, 1000);
+}
+@@prj_js
+#lv 2
+#symptom ランキングで、「9点」の人が「10点」の人より上に表示される。
+#file api.js
+export async function fetchScores() {
+  const res = await fetch("/api/scores");
+  return res.json(); // [9, 10, 100, 25]
+}
+#file ranking.js
+import { fetchScores } from "./api.js";
+
+export async function topScores() {
+  const scores = await fetchScores();
+  return scores.sort().slice(0, 3);
+}
+#fix
+// ranking.js
+export async function topScores() {
+  const scores = await fetchScores();
+  return scores.sort((a, b) => b - a).slice(0, 3);
+}
+@@prj_js
+#lv 3
+#symptom 検索ボックスに素早く文字を打つと、最後に打った文字の結果ではなく、古い入力の結果が表示されることがある。
+#file search.js
+import { render } from "./view.js";
+
+export async function search(q) {
+  const res = await fetch(`/api/search?q=${q}`);
+  const data = await res.json();
+  render(data);
+}
+#file view.js
+export function render(items) {
+  document.getElementById("list").innerHTML = items.map(i => `<li>${i}</li>`).join("");
+}
+#file main.js
+import { search } from "./search.js";
+
+document.getElementById("q").addEventListener("input", e => search(e.target.value));
+#fix
+// search.js
+let latest = 0;
+
+export async function search(q) {
+  const id = ++latest;
+  const res = await fetch(`/api/search?q=${q}`);
+  const data = await res.json();
+  if (id !== latest) return;
+  render(data);
+}
+@@prj_js
+#lv 3
+#symptom 「リセット」を押しても、前のゲームで拾ったアイテムが残っていて、2回目以降のゲームで増え続ける。
+#file state.js
+const initial = { items: [], score: 0 };
+export let state = initial;
+
+export function reset() {
+  state = initial;
+}
+#file game.js
+import { state } from "./state.js";
+
+export function pick(item) {
+  state.items.push(item);
+  state.score += 10;
+}
+#fix
+// state.js
+const makeInitial = () => ({ items: [], score: 0 });
+export let state = makeInitial();
+
+export function reset() {
+  state = makeInitial();
+}
+@@name_extra
+bug|バグ
+car|車
+lap|周回
+timer|タイマー
+score|得点
+speed|速さ
+level|レベル
+player|プレイヤー
+enemy|敵
+item|アイテム
+goal|ゴール
+rank|順位
+current lap count|現在の周回数
+max steering angle|最大のハンドル角
+is game over|ゲームが終わったか
+best lap time|最速のラップタイム
+total checkpoint count|チェックポイントの総数
+has finished race|レースを終えたか
+default start position|初期のスタート位置
+min brake force|最小のブレーキ力
+max fuel amount|燃料の最大量
+last saved score|最後に保存した得点
+current player name|現在のプレイヤー名
+remaining life count|残りライフの数
+is ready to start|スタートの準備ができたか
+get best lap time|最速ラップを取得
+set max speed|最高速度を設定
+update lap counter|周回カウンターの更新
+calculate final score|最終得点の計算
+load race result|レース結果の読み込み
+reset all checkpoints|全チェックポイントのリセット
+total race time seconds|レース時間の合計(秒)
+maximum allowed speed limit|許される最高速度の上限
+number of active players|参加中のプレイヤー数
+time until next checkpoint|次のチェックポイントまでの時間
+should show ghost car|ゴーストカーを表示するか
 @@pool
 return function const let var public private static void int float bool string class struct new this self None True False null undefined async await import from export default if else elif for foreach while break continue switch case try catch finally throw yield lambda print len range list dict map filter reduce length push pop index value result count items data json path open GetComponent<Rigidbody>() transform.position Vector3.zero Quaternion.identity Time.deltaTime Debug.Log("ok"); Input.GetKey(KeyCode.W) Mathf.Clamp(x,0,1) rb.velocity.magnitude console.log(x); querySelector("#id") arr.map(x=>x*2) obj?.value??0 a!==b x>=10&&y<=20 i++ j-- {} [] () <> :: -> => != == += -= *= /= %= || && "str" 'c' `tpl` #define @property $value ^xor ~not |pipe snake_case camelCase PascalCase MAX_SIZE __init__ self.hp kansuu shuusei setsumei hensuu konpairu ryoukai arigatou onegaishimasu yoroshiku zyunbi kyoyuu chousei bunkasai purogura
 </script>
@@ -527,8 +2020,8 @@ const STORE = 'dakendojo-v1';
 let HIST_MAX = 20000; // 運営が記録の上限を上げたら、端末にも最大4万件まで残す(localStorageの容量の都合)
 function loadDB(){ try { return JSON.parse(localStorage.getItem(STORE)); } catch(e){ return null; } }
 function saveDB(){ try { localStorage.setItem(STORE, JSON.stringify(DB)); } catch(e){} }
-let DB = Object.assign({keys:{}, history:[], customCode:'', customIme:'', layout:'jis', kbMode:'miss', account:null, kd:{}, cursor:0, prefsAt:0, prefsSynced:0}, loadDB() || {});
-DB.settings = Object.assign({skip:false, len:'n', sound:false, retry:true}, DB.settings);
+let DB = Object.assign({keys:{}, history:[], customCode:'', customIme:'', layout:'jis', kbMode:'miss', rush:{rule:'ta', lang:'cs'}, account:null, kd:{}, cursor:0, prefsAt:0, prefsSynced:0}, loadDB() || {});
+DB.settings = Object.assign({skip:false, len:'n', sound:false, retry:true, lv:2}, DB.settings);
 
 /* ---------- data ---------- */
 const blocks = {};
@@ -542,13 +2035,54 @@ $('#data').textContent.split(/^@@/m).forEach(b => {
 const pairs = tag => blocks[tag][0].split('\n').filter(Boolean).map(l => l.split('|'));
 const JP = { prompt: pairs('prompt'), daily: pairs('daily') };
 const POOL = blocks.pool[0].split(/\s+/).filter(Boolean);
+const wordsOf = tag => [...new Set(blocks[tag][0].split(/\s+/).filter(Boolean))];
+const BUGS = {}, PRJS = {};
+['cs','py','js'].forEach(l => {
+  BUGS[l] = blocks['bug_' + l].map(b => {
+    const lv = +(b.match(/^#lv (\d)/) || [0, 2])[1];
+    const [hint, bad, fix] = b.replace(/^#lv \d\n/, '').split(/^---$/m).map(x => x.replace(/^\n+|\n+$/g, ''));
+    return {lv, hint, bad:normCode(bad), fix:normCode(fix)};
+  });
+  // プロジェクト調査: #lv / #hint / #symptom(複数行) / #file パス(複数) / #fix(打つ答え。1行目はファイル名のコメント)
+  PRJS[l] = blocks['prj_' + l].map(b => {
+    const o = {lv:2, hint:'', symptom:'', files:[], fix:''}; let sec = null, cur = null;
+    b.split('\n').forEach(line => {
+      let m;
+      if ((m = line.match(/^#lv (\d)$/))) { o.lv = +m[1]; sec = null; }
+      else if ((m = line.match(/^#hint (.*)$/))) { o.hint = m[1]; sec = null; }
+      else if ((m = line.match(/^#symptom (.*)$/))) { o.symptom = m[1]; sec = 'sym'; }
+      else if ((m = line.match(/^#file (.*)$/))) { cur = {path:m[1], code:''}; o.files.push(cur); sec = 'file'; }
+      else if (line === '#fix') sec = 'fix';
+      else if (sec === 'sym') o.symptom += '\n' + line;
+      else if (sec === 'file') cur.code += (cur.code ? '\n' : '') + line;
+      else if (sec === 'fix') o.fix += (o.fix ? '\n' : '') + line;
+    });
+    o.fix = normCode(o.fix); o.files.forEach(f => { f.code = normCode(f.code); });
+    return o;
+  });
+});
+// 難易度: 長さの順に3等分(かんたん=短い / ふつう / むずかしい=長い)。問題の少ない言語でも、必ず各段階に出題される
+const TIERS = {};
+function tierPool(key, arr, sc){
+  if (!TIERS[key]) {
+    const a = arr.slice().sort((x, y) => sc(x) - sc(y)), n = a.length;
+    TIERS[key] = [a.slice(0, Math.floor(n / 3)), a.slice(Math.floor(n / 3), Math.floor(n * 2 / 3)), a.slice(Math.floor(n * 2 / 3))].map(t => t.length ? t : a);
+  }
+  return TIERS[key][lv() - 1];
+}
+const lv = () => [1, 2, 3].includes(DB.settings.lv) ? DB.settings.lv : 2;
+const codeScore = t => t.length + t.split('\n').length * 15;
+const LV_NAME = {1:'かんたん', 2:'ふつう', 3:'むずかしい'};
+const NAMES = pairs('name').concat(pairs('name_extra'));
+const RUSH = { cs: wordsOf('rush_cs'), py: wordsOf('rush_py'), js: wordsOf('rush_js') };
+RUSH.all = [...new Set([...RUSH.cs, ...RUSH.py, ...RUSH.js])];
 
 function normCode(s){
   return s.replace(/\r/g,'').replace(/\t/g,'    ').split('\n').map(l => l.replace(/\s+$/,'')).join('\n').replace(/^\n+|\n+$/g,'');
 }
 function shuffle(a){ a = a.slice(); for (let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
 const pick = (a,n) => shuffle(a).slice(0,n);
-const LEN = {code:{s:1,n:3,l:6}, sym:{s:4,n:8,l:16}, jp:{s:4,n:8,l:16}, chunk:{s:5,n:10,l:20}};
+const LEN = {prj:{s:1,n:2,l:3}, bug:{s:3,n:5,l:9}, name:{s:8,n:15,l:30}, code:{s:1,n:3,l:6}, sym:{s:4,n:8,l:16}, jp:{s:4,n:8,l:16}, chunk:{s:5,n:10,l:20}};
 const lenOf = k => LEN[k][DB.settings.len] || LEN[k].n;
 
 /* ---------- romaji engine ---------- */
@@ -612,8 +2146,11 @@ function tokenize(reading){
 }
 
 /* ---------- state ---------- */
-let mode = 'code', view = 'play';
-const sub = {code:'cs', roma:'prompt', ime:'prompt'};
+let mode = 'code', view = 'play', bugKind = 'one';
+const sub = {code:'cs', roma:'prompt', ime:'prompt', rush:'tacs', bug:'cs', name:'cs'};
+const RUSH_LIMIT_MS = 60000, RUSH_LIVES = 3, RUSH_LOCK_MS = 600; // ライフが減った直後に、入力を止める時間
+const rushCfg = Object.assign({rule:'ta', lang:'cs'}, DB.rush);
+sub.rush = rushCfg.rule + rushCfg.lang;
 let S = null;
 const cur = () => S.items[S.idx];
 
@@ -627,11 +2164,11 @@ function buildItems(){
       const cl = lenOf('chunk'); for (let i = 0; i < lines.length; i += cl) { const c = normCode(lines.slice(i, i+cl).join('\n')); if (c) chunks.push(c); }
       return chunks.map(text => ({type:'code', text}));
     }
-    if (l === 'sym') return pick(blocks.sym[0].split('\n').filter(Boolean), lenOf('sym')).map(text => ({type:'code', text}));
-    return pick(blocks[l], lenOf('code')).map(t => ({type:'code', text:normCode(t)}));
+    if (l === 'sym') return pick(tierPool('sym', blocks.sym[0].split('\n').filter(Boolean), x => x.length), lenOf('sym')).map(text => ({type:'code', text}));
+    return pick(tierPool('code:' + l, blocks[l].map(normCode), codeScore), lenOf('code')).map(text => ({type:'code', text}));
   }
   if (mode === 'roma') {
-    const src = sub.roma === 'mix' ? JP.prompt.concat(JP.daily) : JP[sub.roma];
+    const src = tierPool('roma:' + sub.roma, sub.roma === 'mix' ? JP.prompt.concat(JP.daily) : JP[sub.roma], x => x[1].length);
     return pick(src, lenOf('jp')).map(([text, reading]) => ({type:'roma', text, reading}));
   }
   if (mode === 'ime') {
@@ -640,9 +2177,84 @@ function buildItems(){
       if (!ls.length) return [{type:'ime', text:'上の欄に練習したい文章を1行ずつ入れてください。'}];
       return ls.map(text => ({type:'ime', text}));
     }
-    return pick(JP[sub.ime], lenOf('jp')).map(([text]) => ({type:'ime', text}));
+    return pick(tierPool('ime:' + sub.ime, JP[sub.ime], x => x[0].length), lenOf('jp')).map(([text]) => ({type:'ime', text}));
   }
+  if (mode === 'rush') return genRush(0, 30);
+  if (mode === 'bug' && bugKind === 'prj') return pick(PRJS[sub.bug].filter(b => b.lv === lv()), lenOf('prj')).map(b => ({type:'code', text:b.fix, prj:b}));
+  if (mode === 'bug') return pick(BUGS[sub.bug].filter(b => b.lv === lv()), lenOf('bug')).map(b => ({type:'code', text:b.fix, bug:b}));
+  if (mode === 'name') return genNames(sub.name, lenOf('name'));
   return genWeak();
+}
+
+/* ---------- 命名規則(単語を、指定された書き方の名前に直して打つ) ---------- */
+const NAME_CONV = {
+  cs: [['camel','変数・引数','camelCase'], ['pascal','クラス・メソッド・プロパティ','PascalCase'], ['_camel','privateフィールド','_camelCase'], ['upper','定数','UPPER_SNAKE_CASE']],
+  py: [['snake','変数・関数','snake_case'], ['pascal','クラス','PascalCase'], ['upper','定数','UPPER_SNAKE_CASE'], ['_snake','内部用の名前','_snake_case']],
+  js: [['camel','変数・関数','camelCase'], ['pascal','クラス','PascalCase'], ['upper','定数','UPPER_SNAKE_CASE'], ['kebab','CSSクラス・ファイル名','kebab-case']]
+};
+function nameConv(kind, ws){
+  const cap = w => w[0].toUpperCase() + w.slice(1), camel = ws[0] + ws.slice(1).map(cap).join('');
+  return {camel, _camel:'_' + camel, pascal:ws.map(cap).join(''), snake:ws.join('_'), _snake:'_' + ws.join('_'), upper:ws.join('_').toUpperCase(), kebab:ws.join('-')}[kind];
+}
+// かんたん: 1〜2語・基本の2種類 / ふつう: 2〜3語 / むずかしい: 3語以上
+function genNames(lang, n){
+  const L = lv(), cnt = w => w[0].split(' ').length;
+  let pool = NAMES.filter(w => L === 1 ? cnt(w) <= 2 : L === 2 ? cnt(w) >= 2 && cnt(w) <= 3 : cnt(w) >= 3);
+  const kinds = L === 1 ? NAME_CONV[lang].slice(0, 2) : NAME_CONV[lang];
+  return pick(pool, n).map(([words, ja]) => {
+    const [kind, use, label] = kinds[Math.floor(Math.random() * kinds.length)];
+    return {type:'code', text:nameConv(kind, words.split(' ')), ask:{words, ja, use, label}};
+  });
+}
+function panelHTML(it){
+  if (it.ask) { const a = it.ask; return `<div class="ask"><span class="w">${esc(a.words)}</span><span class="ja">${esc(a.ja)}</span><span>→</span><span class="conv">${esc(a.label)}</span><span class="ja">${esc(a.use)}</span></div>`; }
+  if (it.bug) { // かんたん: ヒントとバグの行の色 / ふつう: ヒントだけ / むずかしい: 何もなし
+    const b = it.bug, fixed = new Set(b.fix.split('\n'));
+    const lines = b.bad.split('\n'), any = lines.some(l => !fixed.has(l));
+    const hint = b.lv <= 2 && b.hint ? ` ・ ヒント: ${esc(b.hint)}` : ' ・ ヒントなし。バグを探そう';
+    return `<div class="bugbox"><div class="hd"><b>バグあり</b>${hint}</div><pre>${lines.map(l => b.lv === 1 && any && !fixed.has(l) ? `<span class="bl">${esc(l) || ' '}</span>` : esc(l)).join('\n')}</pre></div><div class="hd" style="font-size:12px;color:var(--muted)">↓ 直したコードを、最初から打つ</div>`;
+  }
+  if (it.prj) {
+    const q = it.prj, tree = q.files.map(f => '📄 ' + f.path).join('   ');
+    const [sym, ...log] = q.symptom.split('\n');
+    return `<div class="prj"><div class="sym"><b>症状</b> ${esc(sym)}${log.length ? `<pre>${esc(log.join('\n'))}</pre>` : ''}${q.lv === 1 && q.hint ? `<div class="hd" style="font-size:12px;color:var(--muted)">ヒント: ${esc(q.hint)}</div>` : ''}</div>
+      <div class="tree">${esc(tree)}</div>
+      <div class="files">${q.files.map(f => `<div class="f"><div class="fn">${esc(f.path)}</div><pre>${esc(f.code)}</pre></div>`).join('')}</div>
+      ${it.picked ? '<div class="hd" style="font-size:12px;color:var(--muted)">↓ 1行目にそのファイル名のコメント、続けて直したコードを打つ</div>' : ''}</div>`;
+  }
+  return '';
+}
+
+/* ---------- ラッシュ(予約語を次々に打つ。タイムアタック / サバイバル) ---------- */
+// サバイバルは、語数が増えるほど長い語が出る(8語ごとに、1文字ずつ長い語を解禁)
+function genRush(startIdx, n){
+  let pool = RUSH[rushCfg.lang] || RUSH.cs; const out = [];
+  const L = lv(), byLen = pool.filter(w => L === 1 ? w.length <= 6 : L === 3 ? w.length >= 6 : true);
+  if (byLen.length >= 12) pool = byLen; // かんたん: 短い語だけ / むずかしい: 長い語だけ
+  let last = startIdx > 0 && S && S.items[startIdx - 1] ? S.items[startIdx - 1].text : '';
+  for (let i = 0; i < n; i++) {
+    let allowed = pool;
+    if (rushCfg.rule === 'sv') {
+      const cap = (L === 3 ? 8 : 5) + Math.floor((startIdx + i) / 8);
+      const short = pool.filter(w => w.length <= cap);
+      if (short.length >= 8) allowed = short;
+    }
+    let w; do { w = allowed[Math.floor(Math.random() * allowed.length)]; } while (w === last && allowed.length > 1);
+    out.push({type:'code', text:w}); last = w;
+  }
+  return out;
+}
+const rushKey = () => 'rush:' + rushCfg.rule + rushCfg.lang + (lv() !== 2 ? ':' + lv() : '');
+const rushBest = key => DB.history.reduce((m, h) => h.mode === key ? Math.max(m, h.w || 0) : m, 0);
+// タイムアタックの時間切れ。時間が来ていたら終わらせて true
+function rushTick(){
+  if (!S || !S.rush || S.finished || S.rush.rule !== 'ta' || !S.start) return false;
+  if (performance.now() - S.start < S.rush.limitMs) return false;
+  finish(); return true;
+}
+function updateRushInfo(){
+  const b = rushBest(rushKey());
+  $('#rushBest').textContent = b ? `自己ベスト: ${b}語` : 'まだ記録がありません';
 }
 
 function weakKeys(n){
@@ -671,13 +2283,15 @@ function genWeak(){
 }
 
 function newSession(){
-  S = {items:buildItems(), idx:0, start:0, end:0, correct:0, miss:0, lastT:0, missKeys:{}, finished:false};
+  S = {items:[], idx:0, start:0, end:0, correct:0, miss:0, lastT:0, missKeys:{}, finished:false, rush:null};
+  if (mode === 'rush') S.rush = {rule:rushCfg.rule, lang:rushCfg.lang, limitMs:RUSH_LIMIT_MS, lives:RUSH_LIVES, words:0, combo:0, best:0, clean:true};
+  S.items = buildItems();
   loadItem();
   render();
 }
 function loadItem(){
   const it = cur();
-  if (it.type === 'code') { it.pos = 0; it.bad = null; }
+  if (it.type === 'code') { it.pos = 0; it.bad = null; it.picked = !it.prj; }
   if (it.type === 'roma') { it.units = tokenize(it.reading); it.ui = 0; it.buf = ''; }
   if (it.type === 'ime') { it.prev = ''; const inp = $('#imeInput'); inp.value = ''; }
 }
@@ -724,6 +2338,13 @@ function hit(ch){
   S.lastT = now; S.correct++;
   rec(ch, true, lat); sfx.hit();
 }
+function pickFile(i){
+  const it = cur();
+  if (!it || !it.prj || it.picked || S.finished) return;
+  if (it.prj.files[i] && it.text.split('\n')[0].includes(it.prj.files[i].path)) { it.picked = true; sfx.item(); }
+  else if (it.prj.files[i]) miss(null); // 違うファイルを選ぶと、ミス1回
+  render();
+}
 function miss(ch){
   S.miss++;
   const mi = S.items[S.idx];
@@ -735,10 +2356,20 @@ function miss(ch){
   rec(ch, false); sfx.miss();
   const b = $('#body'); b.classList.remove('flash'); void b.offsetWidth; b.classList.add('flash');
   clearTimeout(miss.t); miss.t = setTimeout(() => b.classList.remove('flash'), 160);
+  if (S.rush) {
+    S.rush.combo = 0; S.rush.clean = false;
+    if (S.rush.rule === 'sv') {
+      if (--S.rush.lives <= 0) finish(); // サバイバル: ライフが尽きたら終わり
+      else { // 続けて打ち間違えて、ライフを一気に失わないよう、少しのあいだ入力を止める
+        S.rush.lockUntil = performance.now() + RUSH_LOCK_MS;
+        clearTimeout(miss.t); miss.t = setTimeout(() => b.classList.remove('flash'), RUSH_LOCK_MS);
+      }
+    }
+  }
 }
 
 /* ---------- code typing ---------- */
-const opt = { indent:true, guide:true, get skip(){ return DB.settings.skip; }, get retry(){ return DB.settings.retry; } };
+const opt = { indent:true, guide:true, get skip(){ return DB.settings.skip && mode !== 'rush'; }, get retry(){ return DB.settings.retry; } };
 function codeKey(k){
   const it = cur(), t = it.text, exp = t[it.pos];
   const skipOn = () => { (it.bad = it.bad || new Set()).add(it.pos); it.pos++; if (exp === '\n' && opt.indent) while (t[it.pos] === ' ') it.pos++; };
@@ -815,7 +2446,7 @@ function dedent(lines){
   return ind && ind !== Infinity ? lines.map(l => l.slice(ind)) : lines;
 }
 function queueRetry(it){
-  if (!opt.retry || it.retry || !it.missN || mode === 'ime') return;
+  if (!opt.retry || it.retry || !it.missN || mode === 'ime' || mode === 'bug' || mode === 'name' || S.rush) return;
   if (it.type === 'code') {
     const all = it.text.split('\n');
     const lines = dedent([...it.missLines].sort((a, b) => a - b).map(i => all[i]).filter(l => l && l.trim()));
@@ -823,6 +2454,14 @@ function queueRetry(it){
   } else if (it.type === 'roma') S.items.push({type:'roma', text:it.text, reading:it.reading, retry:true});
 }
 function nextItem(){
+  if (S.rush) { // ラッシュは終わりのない列。足りなくなる前に、次の語を足す
+    S.rush.words++;
+    // 連続: ミスなしで打ち切った語の数(1語の途中でミスすると、そこで0に戻る)
+    if (S.rush.clean) { S.rush.combo++; S.rush.best = Math.max(S.rush.best, S.rush.combo); } else S.rush.combo = 0;
+    S.rush.clean = true;
+    if (S.idx + 4 >= S.items.length) S.items.push(...genRush(S.items.length, 30));
+    S.idx++; sfx.item(); loadItem(); return;
+  }
   queueRetry(cur());
   S.idx++;
   if (S.idx >= S.items.length) return finish();
@@ -835,10 +2474,24 @@ function speed(){
   return ms > 500 ? S.correct / (ms / 60000) : 0;
 }
 function accuracy(){ const n = S.correct + S.miss; return n ? S.correct / n : null; }
-function modeKey(){ return mode === 'weak' ? 'weak' : mode + ':' + sub[mode]; }
+const usesLevel = () => mode === 'roma' || mode === 'bug' || mode === 'name' || mode === 'rush' || (mode === 'code' && sub.code !== 'custom') || (mode === 'ime' && sub.ime !== 'custom');
+// 履歴のモード名。難易度が「ふつう」以外のときは、末尾に :1 / :3 を付ける
+function modeKey(){
+  if (mode === 'weak') return 'weak';
+  if (mode === 'rush') return rushKey();
+  const base = mode === 'bug' && bugKind === 'prj' ? 'prj:' + sub.bug : mode + ':' + sub[mode];
+  return base + (usesLevel() && lv() !== 2 ? ':' + lv() : '');
+}
+const labelOf = m => (MODE_LABEL[m.replace(/:[13]$/, '')] || m.replace(/:[13]$/, '')) + (/:[13]$/.test(m) ? '・' + LV_NAME[m.slice(-1)] : '');
 const MODE_LABEL = {'code:cs':'コード C#','code:py':'コード Python','code:js':'コード JS','code:sym':'記号ラッシュ','code:custom':'自作コード',
   'roma:prompt':'ローマ字 プロンプト','roma:daily':'ローマ字 日常','roma:mix':'ローマ字 ミックス',
   'ime:prompt':'IME プロンプト','ime:daily':'IME 日常','ime:custom':'IME 自作','weak':'苦手特訓'};
+for (const [lg, nm] of [['cs', 'C#'], ['py', 'Python'], ['js', 'JS']]) { MODE_LABEL['bug:' + lg] = 'バグ修正 ' + nm; MODE_LABEL['name:' + lg] = '命名規則 ' + nm; }
+for (const [lg, nm] of [['cs', 'C#'], ['py', 'Python'], ['js', 'JS']]) MODE_LABEL['prj:' + lg] = 'バグ調査 ' + nm;
+for (const [lg, nm] of [['ts','TypeScript'], ['java','Java'], ['go','Go'], ['rust','Rust'], ['c','C'], ['cpp','C++'], ['kt','Kotlin'], ['swift','Swift'], ['php','PHP'], ['rb','Ruby'], ['sql','SQL'], ['sh','シェル']]) MODE_LABEL['code:' + lg] = 'コード ' + nm;
+for (const rule of ['ta', 'sv']) for (const [lg, nm] of [['cs', 'C#'], ['py', 'Python'], ['js', 'JS'], ['all', '全部']]) {
+  MODE_LABEL['rush:' + rule + lg] = `ラッシュ ${rule === 'ta' ? '60秒' : 'サバイバル'} ${nm}`;
+}
 function rankOf(spd, ime){
   const th = ime ? [60,100,140,180] : [150,250,350,450];
   const names = ['見習い','初段','二段','三段','師範'];
@@ -846,18 +2499,37 @@ function rankOf(spd, ime){
   return names[i];
 }
 function finish(){
-  S.end = performance.now(); S.finished = true; sfx.done();
-  if (S.start) {
-    DB.history.push({t:Date.now(), mode:modeKey(), spd:Math.round(speed()), acc:accuracy() ?? 1, sec:Math.round((S.end - S.start)/1000), miss:S.miss, ...(DB.account ? {u:true} : {})});
+  const R = S.rush;
+  S.end = performance.now();
+  if (R && R.rule === 'ta' && S.start) S.end = Math.min(S.end, S.start + R.limitMs); // 時間切れの瞬間で止める
+  S.finished = true; sfx.done();
+  if (R) { R.prevBest = rushBest(rushKey()); R.newBest = R.words > R.prevBest; }
+  if (S.start && !(R && R.words === 0)) { // ラッシュで1語も打てなかった回は、記録しない
+    DB.history.push({t:Date.now(), mode:modeKey(), spd:Math.round(speed()), acc:accuracy() ?? 1, sec:Math.round((S.end - S.start)/1000), miss:S.miss, ...(R ? {w:R.words} : {}), ...(DB.account ? {u:true} : {})});
     if (DB.history.length > HIST_MAX) DB.history = DB.history.slice(-HIST_MAX);
     saveDB(); scheduleSync();
   }
+  if (R) updateRushInfo();
 }
 
 /* ---------- rendering ---------- */
 function fmtTime(sec){ sec = Math.max(0, Math.floor(sec)); return Math.floor(sec/60) + ':' + String(sec % 60).padStart(2,'0'); }
 function renderHud(){
   if (!S) return;
+  const R = S.rush;
+  $('#hNumLbl').textContent = R ? '語数' : '問題'; $('#hTimeLbl').textContent = R && R.rule === 'ta' ? '残り' : '時間';
+  $('#hLivesWrap').hidden = !(R && R.rule === 'sv'); $('#hComboWrap').hidden = !R;
+  if (R) {
+    const el = S.start ? (S.end || performance.now()) - S.start : 0;
+    $('#hNum').textContent = R.words;
+    $('#hSpd').textContent = Math.round(speed()); $('#hUnit').textContent = '打/分';
+    const a = accuracy(); $('#hAcc').textContent = a == null ? '-' : (a * 100).toFixed(1) + '%';
+    $('#hTime').textContent = fmtTime(R.rule === 'ta' ? Math.ceil(Math.max(0, R.limitMs - el) / 1000) : el / 1000);
+    $('#hLives').textContent = '♥'.repeat(Math.max(0, R.lives)) + '♡'.repeat(Math.max(0, RUSH_LIVES - R.lives));
+    $('#hCombo').textContent = R.combo;
+    $('#prog').style.width = (S.finished ? 100 : R.rule === 'ta' ? Math.min(100, el / R.limitMs * 100) : (R.words % 8) / 8 * 100) + '%';
+    return;
+  }
   const n = S.items.length;
   $('#hNum').textContent = Math.min(S.idx + 1, n) + '/' + n;
   $('#hSpd').textContent = Math.round(speed());
@@ -886,11 +2558,17 @@ function renderBody(){
   imeWrap.hidden = it.type !== 'ime';
   const nxt = S.items[S.idx + 1];
   const retryTag = it.retry ? '<div class="retry-tag">復習: さっきミスした部分</div>' : '';
-  const nextLine = nxt ? `<div class="next">次: ${esc(nxt.type === 'code' ? nxt.text.split('\n')[0] : nxt.text)}</div>` : '';
+  const nextLine = mode === 'name' || mode === 'bug' ? '' : S.rush ? `<div class="next">次: ${esc(S.items.slice(S.idx + 1, S.idx + 4).map(x => x.text).join('   '))}</div>`
+    : nxt ? `<div class="next">次: ${esc(nxt.type === 'code' ? nxt.text.split('\n')[0] : nxt.text)}</div>` : '';
+  if (it.prj && !it.picked) { // 先に、原因のファイルを選ぶ。選ぶまで、直したコードは見せない
+    body.innerHTML = `${panelHTML(it)}<div class="pick"><span>原因のファイルはどれ?</span>${it.prj.files.map((f, i) => `<button class="btn" data-pick="${i}"><kbd>${i + 1}</kbd> ${esc(f.path)}</button>`).join('')}</div>`;
+    return;
+  }
   if (it.type === 'code') {
     const t = it.text, p = it.pos, c = t[p];
     const curHTML = c === '\n' ? '<span class="cur">↵</span>\n' : `<span class="cur">${esc(c)}</span>`;
-    body.innerHTML = `${retryTag}<pre class="code"><span class="done">${doneHTML(it)}</span>${curHTML}<span class="rest">${esc(t.slice(p+1))}</span></pre>${nextLine}`;
+    const ready = S.rush && !S.start ? `<p class="rush-ready">${S.rush.rule === 'ta' ? '最初のキーを押すと、60秒のカウントが始まります' : '最初のキーでスタート。ミスは3回まで。語数が増えるほど長い語が出ます'}</p>` : '';
+    body.innerHTML = `${retryTag}${panelHTML(it)}${ready}<pre class="code${S.rush ? ' rush' : ''}"><span class="done">${doneHTML(it)}</span>${curHTML}<span class="rest">${esc(t.slice(p+1))}</span></pre>${nextLine}`;
     const el = body.querySelector('.cur'); if (el && el.scrollIntoView) el.scrollIntoView({block:'nearest', inline:'nearest'});
   } else if (it.type === 'roma') {
     let kDone = '', kRest = '', rDone = '', rCur = '', rRest = '';
@@ -921,7 +2599,29 @@ function renderBody(){
     body.innerHTML = `<p class="ime-target">${h}</p>${nextLine}`;
   }
 }
+function rushResultHTML(){
+  const R = S.rush, spd = Math.round(speed()), a = accuracy(), ta = R.rule === 'ta';
+  const top = Object.entries(S.missKeys).sort((x, y) => y[1] - x[1]).slice(0, 6);
+  const langName = {cs:'C#', py:'Python', js:'JavaScript', all:'すべて'}[R.lang];
+  return `<div class="result">
+    <div class="rank">${ta ? 'タイムアップ！' : 'ゲームオーバー'} ・ ${ta ? 'タイムアタック(60秒)' : 'サバイバル'} ・ ${esc(langName)}</div>
+    <div class="r-main">
+      <div><span class="lbl">語数${R.newBest && R.words > 0 ? '<span class="newbest">自己ベスト更新！</span>' : ''}</span><span class="big">${R.words}</span><span class="unit">語</span></div>
+      <div><span class="lbl">速度</span><span class="mid">${spd}</span><span class="unit">打/分</span></div>
+      <div><span class="lbl">正確率</span><span class="mid">${a == null ? '-' : (a * 100).toFixed(1) + '%'}</span></div>
+      <div><span class="lbl">ミス</span><span class="mid">${S.miss}</span></div>
+      <div><span class="lbl">最高連続(ミスなし)</span><span class="mid">${R.best}</span><span class="unit">語</span></div>
+      ${ta ? '' : `<div><span class="lbl">時間</span><span class="mid">${fmtTime((S.end - S.start) / 1000)}</span></div>`}
+    </div>
+    <div class="lbl">${R.prevBest ? `これまでのベスト: ${R.prevBest}語` : '最初の記録です'}${R.words === 0 ? '(1語も打てなかった回は、記録されません)' : ''}</div>
+    ${top.length ? `<div><div class="lbl" style="margin-bottom:6px">この回ミスが多かったキー</div><div class="chips">${top.map(([k, n]) => `<span class="chip"><b>${esc(k === ' ' ? '␣' : k)}</b>${n}回</span>`).join('')}</div></div>` : '<div class="lbl">ノーミス！</div>'}
+    <div class="btns">
+      <button class="btn primary" data-act="again">もう一度 <kbd>Enter</kbd></button>
+      <button class="btn" data-act="rec">記録を見る</button>
+    </div></div>`;
+}
 function resultHTML(){
+  if (S.rush) return rushResultHTML();
   const ime = mode === 'ime';
   const spd = Math.round(speed()), a = accuracy();
   const top = Object.entries(S.missKeys).sort((x,y) => y[1] - x[1]).slice(0, 6);
@@ -944,7 +2644,10 @@ const HINTS = {
   code: '<kbd>Enter</kbd> 改行 ・ <kbd>Tab</kbd> インデント ・ <kbd>Esc</kbd> やり直し ・ 半角英数で入力。最初のキーでタイマーが始まります。',
   roma: 'shi/si、tsu/tu、ん=nn/n など好きな打ち方でOK ・ <kbd>Esc</kbd> やり直し ・ 半角英数で入力。',
   ime: '普段どおりIMEで変換して入力。全部一致すると次の問題へ進みます ・ <kbd>Esc</kbd> やり直し',
-  weak: '記録から苦手なキーを多く含む問題を作ります ・ <kbd>Esc</kbd> で作り直し'
+  weak: '記録から苦手なキーを多く含む問題を作ります ・ <kbd>Esc</kbd> で作り直し',
+  bug: 'バグのあるコードを見つけて、正しいコードを最初から打ちます ・ <kbd>Esc</kbd> やり直し ・ 半角英数で入力。',
+  name: '単語を、指定された命名規則に直して打ちます(例: move speed → moveSpeed)・ <kbd>Esc</kbd> やり直し',
+  rush: '出てくる予約語を、1語ずつ打ちます。ミスをするとその場で止まります ・ <kbd>Esc</kbd> やり直し ・ 半角英数で入力。'
 };
 function render(){
   renderHud(); renderBody();
@@ -958,11 +2661,12 @@ function setMode(m){
   document.querySelectorAll('#tabs button').forEach(b => b.setAttribute('aria-selected', String(b.dataset.mode === (view === 'rec' ? 'rec' : mode))));
   $('#play').hidden = view !== 'play';
   $('#rec').hidden = view !== 'rec';
-  ['code','roma','ime','weak'].forEach(k => { $('#ctl-' + k).hidden = k !== mode; });
-  $('#lblSkip').hidden = !(mode === 'code' || mode === 'roma' || mode === 'weak');
-  $('#lblRetry').hidden = mode === 'ime'; $('#optRetry').checked = DB.settings.retry;
+  ['code','roma','ime','weak','rush','bug','name'].forEach(k => { $('#ctl-' + k).hidden = k !== mode; });
+  $('#lblSkip').hidden = !(mode === 'code' || mode === 'roma' || mode === 'weak' || mode === 'bug' || mode === 'name');
+  $('#lblRetry').hidden = mode === 'ime' || mode === 'rush' || mode === 'bug' || mode === 'name'; $('#optRetry').checked = DB.settings.retry;
   $('#optSkip').checked = DB.settings.skip; $('#selLen').value = DB.settings.len; $('#optSound').checked = DB.settings.sound;
-  $('#lblLen').hidden = (mode === 'ime' && sub.ime === 'custom');
+  $('#lblLen').hidden = (mode === 'ime' && sub.ime === 'custom') || mode === 'rush';
+  $('#selBug').value = sub.bug; $('#selBugKind').value = bugKind; $('#selLv').value = lv(); updateBugHint(); $('#selName').value = sub.name; $('#selRule').value = rushCfg.rule; $('#selRushLang').value = rushCfg.lang; updateRushInfo();
   updateCustomBox();
   if (view === 'rec') { renderRecords(); return; }
   if (mode === 'weak') {
@@ -979,7 +2683,14 @@ function focusStage(){
   if (view !== 'play' || document.querySelector('dialog[open]')) return;
   if (mode === 'ime') $('#imeInput').focus({preventScroll:true}); else $('#stage').focus({preventScroll:true});
 }
+function updateBugHint(){
+  $('#bugHint').textContent = bugKind === 'prj'
+    ? '症状とファイルを読んで、原因のファイルを探します。答えは「ファイル名のコメント+直したコード」'
+    : 'バグのあるコードを見て、正しく直したコードを打ちます';
+  $('#selBugKind').value = bugKind;
+}
 function updateCustomBox(){
+  $('#lblLv').hidden = !usesLevel();
   const show = view === 'play' && ((mode === 'code' && sub.code === 'custom') || (mode === 'ime' && sub.ime === 'custom'));
   $('#customBox').hidden = !show;
   if (show) {
@@ -990,6 +2701,13 @@ function updateCustomBox(){
 }
 document.querySelectorAll('#tabs button').forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
 $('#selCode').addEventListener('change', e => { sub.code = e.target.value; updateCustomBox(); newSession(); focusStage(); });
+const setRush = () => { sub.rush = rushCfg.rule + rushCfg.lang; DB.rush = {rule:rushCfg.rule, lang:rushCfg.lang}; saveDB(); updateRushInfo(); newSession(); focusStage(); };
+$('#selRule').addEventListener('change', e => { rushCfg.rule = e.target.value; setRush(); });
+$('#selRushLang').addEventListener('change', e => { rushCfg.lang = e.target.value; setRush(); });
+$('#selBug').addEventListener('change', e => { sub.bug = e.target.value; newSession(); focusStage(); });
+$('#selBugKind').addEventListener('change', e => { bugKind = e.target.value; updateBugHint(); newSession(); focusStage(); });
+$('#selLv').addEventListener('change', e => { DB.settings.lv = +e.target.value; touchPrefs(); updateRushInfo(); newSession(); focusStage(); });
+$('#selName').addEventListener('change', e => { sub.name = e.target.value; newSession(); focusStage(); });
 $('#selRoma').addEventListener('change', e => { sub.roma = e.target.value; newSession(); focusStage(); });
 $('#selIme').addEventListener('change', e => { sub.ime = e.target.value; $('#lblLen').hidden = sub.ime === 'custom'; updateCustomBox(); newSession(); focusStage(); });
 $('#optIndent').addEventListener('change', e => { opt.indent = e.target.checked; newSession(); focusStage(); });
@@ -1003,6 +2721,8 @@ $('#customApply').addEventListener('click', () => {
   touchPrefs(); newSession(); focusStage();
 });
 $('#stage').addEventListener('click', e => {
+  const pk = e.target.closest('[data-pick]');
+  if (pk) { pickFile(+pk.dataset.pick); focusStage(); return; }
   const act = e.target.closest('[data-act]');
   if (act) {
     const a = act.dataset.act;
@@ -1023,6 +2743,12 @@ document.addEventListener('keydown', e => {
   if (e.ctrlKey || e.metaKey || e.altKey) return;
   if (e.key === 'Escape') { e.preventDefault(); newSession(); focusStage(); return; }
   if (S.finished) { if (e.key === 'Enter') { e.preventDefault(); newSession(); focusStage(); } return; }
+  if (S.rush && rushTick()) { e.preventDefault(); render(); return; } // 時間切れのあとの入力は、受け付けない
+  if (cur().prj && !cur().picked) { // ファイル選択中は、数字キーで選ぶ
+    if (/^[1-9]$/.test(e.key)) { e.preventDefault(); pickFile(+e.key - 1); }
+    return;
+  }
+  if (S.rush && S.rush.lockUntil && performance.now() < S.rush.lockUntil) { e.preventDefault(); return; } // ライフが減った直後は、入力を受け付けない
   if (mode === 'ime') { $('#imeInput').focus(); return; }
   if (e.isComposing || e.key === 'Process' || e.keyCode === 229) { $('#warn').hidden = false; e.preventDefault(); return; }
   let k = e.key;
@@ -1033,7 +2759,7 @@ document.addEventListener('keydown', e => {
   if (cur().type === 'roma') romaKey(k); else codeKey(k);
   render();
 });
-setInterval(() => { if (view === 'play' && S && S.start && !S.finished) renderHud(); }, 250);
+setInterval(() => { if (view === 'play' && S && S.start && !S.finished) { if (rushTick()) render(); else renderHud(); } }, 250);
 window.addEventListener('beforeunload', saveDB);
 setInterval(saveDB, 5000);
 
@@ -1105,6 +2831,12 @@ function renderWeakList(){
 }
 
 /* 履歴を日/週/月ごとに平均する。weekは月曜始まり */
+// グラフの系列に属する履歴か。ラッシュは、ルールごとに分ける(タイムアタックとサバイバルは語数の意味が違うため)
+function inGroup(h, g){
+  if (g === 'rush-ta') return h.mode.startsWith('rush:ta');
+  if (g === 'rush-sv') return h.mode.startsWith('rush:sv');
+  return h.mode === g || h.mode.startsWith(g + ':');
+}
 function aggregate(data, kind, g){
   const groups = new Map();
   data.forEach(h => {
@@ -1114,29 +2846,31 @@ function aggregate(data, kind, g){
     else if (kind === 'week') start = new Date(d.getFullYear(), d.getMonth(), d.getDate() - (d.getDay() + 6) % 7);
     else start = new Date(d.getFullYear(), d.getMonth(), d.getDate());
     const k = start.getTime(), e = groups.get(k) || {t:k, sp:0, ac:0, n:0};
-    e.sp += h.spd; e.ac += h.acc; e.n++; groups.set(k, e);
+    e.sp += h.spd; e.ac += h.acc; e.w = (e.w || 0) + (h.w || 0); e.n++; groups.set(k, e);
   });
   return [...groups.values()].sort((a, b) => a.t - b.t).map(e => {
     const d = new Date(e.t);
     const label = kind === 'month' ? `${d.getFullYear()}/${d.getMonth()+1}` : kind === 'week' ? `${d.getMonth()+1}/${d.getDate()}の週` : `${d.getMonth()+1}/${d.getDate()}`;
-    return {t:e.t, spd:Math.round(e.sp / e.n), acc:e.ac / e.n, n:e.n, mode:g, label};
+    return {t:e.t, spd:Math.round(e.sp / e.n), acc:e.ac / e.n, w:Math.round(e.w / e.n), n:e.n, mode:g, label};
   });
 }
 function renderChart(){
   const box = $('#chart');
   const g = $('#selHist').value;
   const gran = $('#selGran').value, agg = gran !== 'run';
-  let data = DB.history.filter(h => h.mode === g || h.mode.startsWith(g + ':'));
+  const isRush = g.startsWith('rush-');
+  let data = DB.history.filter(h => inGroup(h, g));
   if (agg && data.length) {
     let kind = 'day';
     if (gran === 'all') { const span = (data[data.length-1].t - data[0].t) / 86400000; kind = span <= 60 ? 'day' : span <= 366 ? 'week' : 'month'; }
     data = aggregate(data, kind, g);
   }
   if (gran !== 'all') data = data.slice(-30);
-  const unit = g === 'ime' ? '字/分' : '打/分';
+  const unit = isRush ? '語' : g === 'ime' ? '字/分' : '打/分';
+  const val = d => isRush ? (d.w || 0) : d.spd;
   if (!data.length) { box.innerHTML = `<div class="empty">このモードの記録はまだありません。1回練習するとグラフが表示されます。</div>`; return; }
   const W = Math.max(300, box.clientWidth || 560), H = 220, ml = 40, mr = 18, mt = 14, mb = 28;
-  const max = Math.max(...data.map(d => d.spd), 10);
+  const max = Math.max(...data.map(d => val(d)), 10);
   const raw = max * 1.15 / 4, mag = Math.pow(10, Math.floor(Math.log10(raw))); const stepC = [1,2,2.5,5,10].find(m => m * mag >= raw) * mag;
   const yMax = Math.ceil(max * 1.15 / stepC) * stepC;
   const x = i => data.length === 1 ? ml + (W - ml - mr) / 2 : ml + i * (W - ml - mr) / (data.length - 1);
@@ -1146,7 +2880,7 @@ function renderChart(){
     s += `<line x1="${ml}" x2="${W - mr}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)" stroke-width="1" ${v ? 'stroke-dasharray="2 4"' : ''}/>`;
     s += `<text x="${ml - 8}" y="${y(v) + 4}" text-anchor="end">${v}</text>`;
   }
-  const pts = data.map((d, i) => [x(i), y(d.spd)]);
+  const pts = data.map((d, i) => [x(i), y(val(d))]);
   if (data.length > 1) {
     const line = pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
     s += `<path d="${line} L${pts[pts.length-1][0].toFixed(1)} ${y(0)} L${pts[0][0].toFixed(1)} ${y(0)} Z" fill="var(--accent)" fill-opacity="0.12"/>`;
@@ -1154,7 +2888,7 @@ function renderChart(){
   }
   const last = pts[pts.length - 1];
   s += `<circle cx="${last[0]}" cy="${last[1]}" r="5" fill="var(--accent)" stroke="var(--panel)" stroke-width="2"/>`;
-  s += `<text x="${Math.min(last[0], W - mr - 4)}" y="${last[1] - 10}" text-anchor="end" style="fill:var(--ink)">${data[data.length-1].spd} ${unit}</text>`;
+  s += `<text x="${Math.min(last[0], W - mr - 4)}" y="${last[1] - 10}" text-anchor="end" style="fill:var(--ink)">${val(data[data.length-1])} ${unit}</text>`;
   const yr = data.length > 1 && new Date(data[0].t).getFullYear() !== new Date(data[data.length-1].t).getFullYear();
   const dlab = t => { const d = new Date(t); return (yr ? d.getFullYear() + '/' : '') + (d.getMonth()+1) + '/' + d.getDate(); };
   s += `<text x="${x(0)}" y="${H - 8}" text-anchor="${data.length === 1 ? 'middle' : 'start'}">${dlab(data[0].t)}</text>`;
@@ -1169,13 +2903,13 @@ function renderChart(){
     const r = svg.getBoundingClientRect(), sx = (e.clientX - r.left) * W / r.width;
     let i = data.length === 1 ? 0 : Math.round((sx - ml) / ((W - ml - mr) / (data.length - 1)));
     i = Math.max(0, Math.min(data.length - 1, i));
-    const d = data[i], px = x(i), py = y(d.spd);
+    const d = data[i], px = x(i), py = y(val(d));
     cx.setAttribute('x1', px); cx.setAttribute('x2', px); cx.setAttribute('visibility', 'visible');
     cd.setAttribute('cx', px); cd.setAttribute('cy', py); cd.setAttribute('visibility', 'visible');
     const dt = new Date(d.t);
     tip.innerHTML = agg
-      ? `${d.label} ・ ${d.n}回の平均<br><b>${d.spd}</b> ${unit} ・ 正確率 ${(d.acc*100).toFixed(1)}%`
-      : `${dt.getMonth()+1}/${dt.getDate()} ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')} ・ ${esc(MODE_LABEL[d.mode] || d.mode)}<br><b>${d.spd}</b> ${unit} ・ 正確率 ${(d.acc*100).toFixed(1)}%`;
+      ? `${d.label} ・ ${d.n}回の平均<br><b>${val(d)}</b> ${unit} ・ 正確率 ${(d.acc*100).toFixed(1)}%`
+      : `${dt.getMonth()+1}/${dt.getDate()} ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')} ・ ${esc(labelOf(d.mode))}<br><b>${val(d)}</b> ${unit} ・ 正確率 ${(d.acc*100).toFixed(1)}%`;
     tip.hidden = false;
     const scale = r.width / W;
     let left = px * scale + 12; if (left + tip.offsetWidth > r.width) left = px * scale - tip.offsetWidth - 12;
@@ -1192,7 +2926,7 @@ function renderTable(){
   if (!rows.length) { $('#histTbl').innerHTML = '<tr><td class="empty">まだ記録がありません。</td></tr>'; return; }
   $('#histTbl').innerHTML = '<tr><th>日時</th><th>モード</th><th>速度</th><th>正確率</th><th>時間</th><th>ミス</th></tr>' +
     rows.map(r => { const d = new Date(r.t); const ime = r.mode.startsWith('ime');
-      return `<tr><td>${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}</td><td>${esc(MODE_LABEL[r.mode] || r.mode)}</td><td>${r.spd} ${ime ? '字/分' : '打/分'}</td><td>${(r.acc*100).toFixed(1)}%</td><td>${fmtTime(r.sec)}</td><td>${r.miss}</td></tr>`; }).join('');
+      return `<tr><td>${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}</td><td>${esc(labelOf(r.mode))}</td><td>${r.mode.startsWith('rush:') ? (r.w || 0) + '語 ・ ' + r.spd + ' 打/分' : r.spd + ' ' + (ime ? '字/分' : '打/分')}</td><td>${(r.acc*100).toFixed(1)}%</td><td>${fmtTime(r.sec)}</td><td>${r.miss}</td></tr>`; }).join('');
 }
 function renderRecords(){ renderChart(); renderWeakList(); renderKeyboard(); renderTable(); }
 
@@ -1230,7 +2964,7 @@ $('#impFile').addEventListener('change', e => {
       if (!h || typeof h.t !== 'number' || typeof h.mode !== 'string' || typeof h.spd !== 'number') return;
       if (have.has(h.t + '|' + h.mode)) return;
       have.add(h.t + '|' + h.mode);
-      DB.history.push({t:h.t, mode:h.mode, spd:h.spd, acc:+h.acc || 0, sec:+h.sec || 0, miss:+h.miss || 0, ...(DB.account ? {u:true} : {})}); added++;
+      DB.history.push({t:h.t, mode:h.mode, spd:h.spd, acc:+h.acc || 0, sec:+h.sec || 0, miss:+h.miss || 0, ...(Number.isInteger(h.w) && h.w > 0 ? {w:h.w} : {}), ...(DB.account ? {u:true} : {})}); added++;
     });
     DB.history.sort((a, b) => a.t - b.t);
     if (DB.history.length > HIST_MAX) DB.history = DB.history.slice(-HIST_MAX);
@@ -1270,7 +3004,7 @@ function touchPrefs(){ DB.prefsAt = Date.now(); saveDB(); scheduleSync(); }
 const prefsData = () => ({settings:DB.settings, layout:DB.layout, kbMode:DB.kbMode, customCode:DB.customCode, customIme:DB.customIme});
 function applyPrefs(p){
   const d = p.data || {};
-  DB.settings = Object.assign({skip:false, len:'n', sound:false, retry:true}, d.settings);
+  DB.settings = Object.assign({skip:false, len:'n', sound:false, retry:true, lv:2}, d.settings);
   if (d.layout === 'jis' || d.layout === 'us') DB.layout = d.layout;
   if (d.kbMode === 'miss' || d.kbMode === 'speed') DB.kbMode = d.kbMode;
   if (typeof d.customCode === 'string') DB.customCode = d.customCode;

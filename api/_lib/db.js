@@ -22,6 +22,7 @@ const SCHEMA = [
      miss integer NOT NULL,
      PRIMARY KEY (user_id, t, mode))`,
   `CREATE INDEX IF NOT EXISTS runs_user_id_idx ON runs (user_id, id)`,
+  `ALTER TABLE runs ADD COLUMN IF NOT EXISTS score integer NOT NULL DEFAULT 0`, // ラッシュモードの語数(ほかのモードは0)
   `CREATE TABLE IF NOT EXISTS key_stats (
      user_id bigint NOT NULL REFERENCES users(id) ON DELETE CASCADE,
      k text NOT NULL,
